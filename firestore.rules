@@ -1,0 +1,87 @@
+rules_version = '2';
+
+// PICK UP N GO — Cloud Firestore security rules
+// Roles live in /users/{uid}.role : 'customer' (default) | 'staff' | 'admin'.
+// Only an admin can grant staff/admin roles (or set them in the Firebase console).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
+    function role() {
+      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? userDoc().data.role : 'customer';
+    }
+    function isAdmin() { return role() == 'admin'; }
+    function isStaff() { return role() in ['staff', 'admin']; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+
+    // ---- Menu & settings: public read, admin write -------------------------
+    match /menu/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- Users / profiles ---------------------------------------------------
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      // Self-registration is always as a customer.
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'customer';
+      // Users may edit their own profile but never their role.
+      allow update: if signedIn() && (
+        isAdmin() ||
+        (request.auth.uid == uid && !('role' in changed()))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ---- Orders -------------------------------------------------------------
+    match /orders/{orderId} {
+      allow read: if signedIn() && (resource.data.customer.uid == request.auth.uid || isStaff());
+
+      // Customers create their own order in the initial state only.
+      allow create: if signedIn()
+        && request.resource.data.customer.uid == request.auth.uid
+        && request.resource.data.status == 'Pending Confirmation'
+        && request.resource.data.payment.status == 'Pending'
+        && request.resource.data.payment.method in ['cash', 'duitnow', 'online']
+        && request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 50
+        && request.resource.data.total is number
+        && request.resource.data.total >= 0
+        && request.resource.data.customer.name is string
+        && request.resource.data.customer.phone is string;
+
+      // Staff/admin manage everything. Customers may only:
+      //  - upload/replace a payment receipt (payment status stays/returns to Pending)
+      //  - cancel while still 'Pending Confirmation'
+      allow update: if isStaff() || (
+        signedIn()
+        && resource.data.customer.uid == request.auth.uid
+        && changed().hasOnly(['payment', 'status', 'history', 'updatedAt'])
+        && request.resource.data.payment.method == resource.data.payment.method
+        && request.resource.data.payment.status == 'Pending'
+        && (
+          request.resource.data.status == resource.data.status ||
+          (resource.data.status == 'Pending Confirmation' && request.resource.data.status == 'Cancelled')
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ---- Slot capacity counters (one doc per date: { "09:00": 3, ... }) ------
+    // Readable by anyone so customers can see full slots without reading orders.
+    match /slotCounts/{date} {
+      allow read: if true;
+      allow create, update: if signedIn()
+        && request.resource.data.keys().size() <= 96;
+      allow delete: if isAdmin();
+    }
+  }
+}

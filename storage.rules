@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// PICK UP N GO — Firebase Storage rules
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() { return request.auth != null; }
+    function role() {
+      return firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        ? firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role
+        : 'customer';
+    }
+    function isAdmin() { return signedIn() && role() == 'admin'; }
+    function isStaff() { return signedIn() && role() in ['staff', 'admin']; }
+    function isImage() { return request.resource.contentType.matches('image/.*'); }
+    function smallerThan(mb) { return request.resource.size < mb * 1024 * 1024; }
+
+    // Food photos: public read, admin upload
+    match /menu/{file} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && smallerThan(3);
+    }
+
+    // DuitNow QR and other shop assets
+    match /settings/{file} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && smallerThan(3);
+    }
+
+    // Payment receipts: only the uploader and staff can see them
+    match /receipts/{uid}/{file} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      allow write: if signedIn() && request.auth.uid == uid && isImage() && smallerThan(5);
+    }
+  }
+}
