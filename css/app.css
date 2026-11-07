@@ -742,10 +742,17 @@ body[data-chrome="none"] .sticky-cta { bottom: calc(14px + var(--safe-b)); }
 .drawer-user small { font-size: 12px; opacity: .7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drawer-user small b { opacity: 1; }
 .admin-nav { display: flex; flex-direction: column; gap: 4px; }
-.admin-nav a, .admin-foot a, .admin-foot button { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; color: rgba(255, 255, 255, .72); font-size: 14px; font-weight: 500; white-space: nowrap; position: relative; width: 100%; text-align: left; }
-.admin-nav a.on { background: var(--accent); color: var(--dark); }
-.admin-nav a:hover:not(.on), .admin-foot a:hover, .admin-foot button:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.admin-nav a, .admin-nav button, .admin-foot a, .admin-foot button { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; color: rgba(255, 255, 255, .72); font-size: 14px; font-weight: 500; white-space: nowrap; position: relative; width: 100%; text-align: left; }
+.admin-nav a.on, .admin-nav button.on { background: var(--accent); color: var(--dark); }
+.admin-nav a:hover:not(.on), .admin-nav button:hover:not(.on), .admin-foot a:hover, .admin-foot button:hover { background: rgba(255, 255, 255, .08); color: #fff; }
 .admin-nav .nbadge { margin-left: auto; }
+.nav-count { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 700; min-width: 26px; height: 22px; padding: 0 7px; border-radius: 99px; display: grid; place-items: center; background: rgba(255, 255, 255, .1); color: #fff; }
+.admin-nav .on .nav-count { background: rgba(0, 0, 0, .15); color: var(--dark); }
+.side-label { margin: 14px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; color: rgba(255, 255, 255, .45); }
+.side-note { display: block; padding: 10px 12px; font-size: 13px; color: rgba(255, 255, 255, .6); }
+/* Staff counter inside the shared shell */
+.admin-main .staff { max-width: 1280px; margin: 0; padding: 0; }
+.head-scan { gap: 6px; }
 .nbadge { font-style: normal; background: var(--danger); color: #fff; font-size: 11px; font-weight: 700; min-width: 20px; height: 20px; border-radius: 99px; display: grid; place-items: center; padding: 0 5px; }
 .admin-foot { display: flex; flex-direction: column; margin-top: auto; gap: 4px; border-top: 1px solid rgba(255, 255, 255, .1); padding-top: 12px; }
 .admin-main { flex: 1; min-width: 0; padding: 28px max(32px, var(--safe-r)) calc(60px + var(--safe-b)) 32px; }
@@ -790,6 +797,15 @@ body[data-chrome="none"] .sticky-cta { bottom: calc(14px + var(--safe-b)); }
   .admin-head-actions [data-bell] { font-size: 0; width: 38px; padding: 0; }
   .admin-head-actions [data-bell]::before { content: '🔔'; font-size: 16px; }
   .save-bar { bottom: calc(10px + var(--safe-b)); }
+  /* Staff: Scan lives in the sticky app bar on phones */
+  .staff-tools .scan-btn { display: none; }
+  .staff-stats { gap: 8px; }
+  .staff-stats .stat { padding: 10px 4px; border-radius: 16px; }
+  .staff-stats .stat b { font-size: 18px; }
+  .staff-stats .stat small { font-size: 11px; line-height: 1.2; display: block; }
+  .staff-tools .search { min-width: 0; }
+  .head-scan { width: 44px; height: 44px; padding: 0; border-radius: 14px; }
+  .head-scan svg { width: 22px; height: 22px; }
   /* Compact KPI tiles so the dashboard fits more on a phone screen */
   .kpis { gap: 10px; }
   .kpis .kpi { padding: 12px; display: grid; grid-template-columns: 34px 1fr; grid-template-rows: auto auto; column-gap: 10px; row-gap: 2px; align-items: center; text-align: left; }
@@ -955,11 +971,6 @@ code { background: var(--soft); padding: 1px 6px; border-radius: 6px; font-size:
 
 /* ---------- Staff -------------------------------------------------------- */
 .staff { max-width: 1280px; margin: 0 auto; padding: calc(14px + var(--safe-t)) max(16px, var(--safe-r)) calc(60px + var(--safe-b)) max(16px, var(--safe-l)); }
-.staff-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 16px; }
-.staff-brand { display: flex; align-items: center; gap: 10px; }
-.staff-brand strong { display: block; font-size: 18px; }
-.staff-brand small { color: var(--muted); font-size: 12px; }
-.staff-head-actions { display: flex; gap: 8px; }
 .staff-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
 .staff-stats .stat:first-child { background: var(--primary); }
 .staff-stats .stat:first-child b, .staff-stats .stat:first-child small { color: #fff; }
@@ -1054,6 +1065,11 @@ code { background: var(--soft); padding: 1px 6px; border-radius: 6px; font-size:
   .detail-hero { margin-bottom: -40px; }
   .welcome-hero { height: 220px; }
 }
+
+/* Admin/Staff: toasts at the bottom so they never cover the sticky app bar */
+body[data-chrome="admin"] #toasts, body[data-chrome="staff"] #toasts { top: auto; bottom: calc(16px + var(--safe-b)); flex-direction: column-reverse; }
+body[data-chrome="admin"] .toast, body[data-chrome="staff"] .toast { transform: translateY(20px); }
+body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { transform: none; }
 
 /* Data mode indicator */
 .mode-on { color: var(--ok); }

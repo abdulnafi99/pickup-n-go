@@ -11,6 +11,7 @@ import { generateSlots } from '../pickup.js';
 import { waLink, reminderMessage, statusMessage, PAY_LABEL, locationName } from '../whatsapp.js';
 import { itemsHTML, totalsHTML, pickupInfoHTML, customerHTML, paymentHTML, printReceipt, downloadReceipt, viewImage, trackerHTML } from './shared.js';
 import { logoSVG } from './customer.js';
+import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
 
 const TABS = [
@@ -592,7 +593,7 @@ export const admin = {
     return true;
   },
   enter(ctx) {
-    drawerOpen = false; // always start closed after navigating
+    adminDrawer.open = false; // always start closed after navigating
     document.body.classList.remove('no-scroll');
     currentTab = ctx.params[0] || 'dashboard';
     if (ctx.query.s) st.orderStatus = ctx.query.s;
@@ -606,7 +607,7 @@ export const admin = {
     const pending = Store.orders.filter((o) => o.status === 'Pending Confirmation').length;
     void ctx;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
-    return `<div class="admin ${drawerOpen ? 'drawer-open' : ''}">
+    return `<div class="admin ${adminDrawer.open ? 'drawer-open' : ''}">
       <div class="admin-scrim" data-drawer-close aria-hidden="true"></div>
       <aside class="admin-side" id="admin-drawer" aria-label="Admin navigation">
         <div class="admin-brand">
@@ -626,9 +627,7 @@ export const admin = {
       </aside>
       <main class="admin-main">
         <header class="admin-head">
-          <button class="drawer-btn" data-drawer-toggle aria-controls="admin-drawer" aria-expanded="${drawerOpen}" aria-label="Buka menu navigasi">
-            ${icon.menu}${pending ? `<i class="drawer-dot">${pending}</i>` : ''}
-          </button>
+          ${drawerButton(adminDrawer, pending)}
           <div class="admin-title"><h1>${tab[1]}</h1><small>${fmtDate(todayStr())} <span class="hide-sm">• ${esc(Store.user.name || Store.user.email)}</span> • ${modeBadge}</small></div>
           <div class="admin-head-actions">
             ${permission() === 'default' ? '<button class="btn btn-ghost btn-sm" data-bell>🔔 Enable order alerts</button>' : permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : ''}
@@ -645,7 +644,7 @@ export const admin = {
   mount(root, ctx) {
     if (!Store.isAdmin()) return;
     const rerender = (opts) => ctx.refresh(opts);
-    bindDrawer(root);
+    bindDrawer(root, adminDrawer);
 
     root.addEventListener('click', async (e) => {
       const t = e.target;
@@ -789,58 +788,4 @@ export const admin = {
 };
 
 let currentTab = 'dashboard';
-let drawerOpen = false;
-
-// ---------------------------------------------------------------------------
-// Mobile navigation drawer (sidebar that slides in/out; static on desktop)
-// ---------------------------------------------------------------------------
-function bindDrawer(root) {
-  const shell = root.querySelector('.admin');
-  const side = root.querySelector('.admin-side');
-  const btn = root.querySelector('[data-drawer-toggle]');
-  if (!shell || !side || !btn) return;
-  const mobile = () => window.matchMedia('(max-width: 959px)').matches;
-  const set = (open) => {
-    drawerOpen = open && mobile();
-    shell.classList.toggle('drawer-open', drawerOpen);
-    btn.setAttribute('aria-expanded', String(drawerOpen));
-    document.body.classList.toggle('no-scroll', drawerOpen);
-    if (drawerOpen) side.querySelector('.admin-nav a.on, .admin-nav a')?.focus({ preventScroll: true });
-  };
-  btn.addEventListener('click', () => set(!drawerOpen));
-  root.querySelectorAll('[data-drawer-close]').forEach((el) => el.addEventListener('click', () => { set(false); btn.focus(); }));
-  // Tapping a link closes the drawer (navigation re-renders the page anyway).
-  side.addEventListener('click', (e) => { if (e.target.closest('a')) set(false); });
-  // Swipe left on the drawer to close it.
-  let x0 = null;
-  side.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
-  side.addEventListener('touchmove', (e) => {
-    if (x0 === null) return;
-    const dx = e.touches[0].clientX - x0;
-    if (dx < 0) side.style.transform = `translateX(${dx}px)`;
-  }, { passive: true });
-  side.addEventListener('touchend', (e) => {
-    const dx = (e.changedTouches[0]?.clientX ?? x0) - x0;
-    side.style.transform = '';
-    x0 = null;
-    if (dx < -70) set(false);
-  });
-  // Swipe right from the left screen edge to open it.
-  let edge = null;
-  shell.addEventListener('touchstart', (e) => { const t = e.touches[0]; edge = !drawerOpen && t.clientX < 24 ? t.clientX : null; }, { passive: true });
-  shell.addEventListener('touchend', (e) => {
-    if (edge !== null && (e.changedTouches[0]?.clientX ?? 0) - edge > 60) set(true);
-    edge = null;
-  });
-}
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && drawerOpen) document.querySelector('[data-drawer-close]')?.click();
-});
-window.addEventListener('resize', () => {
-  if (drawerOpen && window.matchMedia('(min-width: 960px)').matches) {
-    drawerOpen = false;
-    document.querySelector('.admin')?.classList.remove('drawer-open');
-    document.body.classList.remove('no-scroll');
-  }
-});
+const adminDrawer = { open: false };

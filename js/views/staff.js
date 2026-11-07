@@ -10,9 +10,18 @@ import { waLink, reminderMessage, PAY_LABEL } from '../whatsapp.js';
 import { startScanner, parseOrderQR } from '../qr.js';
 import { openOrderModal, nextStatusBtn, deniedHTML } from './admin.js';
 import { logoSVG } from './customer.js';
+import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
 
 const st = { q: '', filter: 'todo' };
+const staffDrawer = { open: false };
+
+const FILTERS = [
+  ['todo', 'To Do', icon.receipt],
+  ['ready', 'Ready for Pickup', icon.bag],
+  ['done', 'Done', icon.check],
+  ['all', 'All Today', icon.grid],
+];
 
 function staffCard(o) {
   const unpaid = o.payment.status !== 'Verified';
@@ -134,16 +143,52 @@ export const staff = {
     list.forEach((o) => (groups[q ? `${o.pickupDate}|${o.pickupTime}` : o.pickupTime] ||= []).push(o));
     const cnt = (fn) => todays.filter(fn).length;
     const nowT = new Date().toTimeString().slice(0, 5);
+    const filterCount = {
+      todo: cnt((o) => ACTIVE_STATUSES.includes(o.status)),
+      ready: cnt((o) => o.status === 'Ready for Pickup'),
+      done: cnt((o) => ['Completed', 'Cancelled'].includes(o.status)),
+      all: todays.length,
+    };
+    const u = Store.user;
+    const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
+    const activeFilter = q ? '' : st.filter;
 
-    return `<section class="staff">
-      <header class="staff-head">
-        <div class="staff-brand"><span class="logo-mark">${logoSVG()}</span><div><strong>Pickup Counter</strong><small>${fmtDate(today)}</small></div></div>
-        <div class="staff-head-actions">
-          ${permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : permission() === 'default' ? '<button class="btn btn-accent btn-sm" data-bell>🔔 Order alerts</button>' : ''}
-          ${Store.isAdmin() ? `<a class="btn btn-ghost btn-sm" href="#/admin">${icon.chart} Admin</a>` : ''}
-          <button class="btn btn-ghost btn-sm" data-logout>${icon.logout}</button>
+    return `<div class="admin staff-shell ${staffDrawer.open ? 'drawer-open' : ''}">
+      <div class="admin-scrim" data-drawer-close aria-hidden="true"></div>
+      <aside class="admin-side" id="admin-drawer" aria-label="Staff navigation">
+        <div class="admin-brand">
+          <span class="logo-mark">${logoSVG()}</span><div><strong>PICK UP N GO</strong><small>Pickup Counter</small></div>
+          <button class="drawer-close" data-drawer-close aria-label="Tutup menu">${icon.x}</button>
+        </div>
+        <div class="drawer-user">
+          <span class="avatar">${esc((u.name || u.email || 'S').slice(0, 1).toUpperCase())}</span>
+          <div><strong>${esc(u.name || 'Staff')}</strong><small>${esc(u.email || '')} • ${esc(u.role)}</small><small>${modeBadge}</small></div>
+        </div>
+        <p class="side-label">Pesanan hari ini</p>
+        <nav class="admin-nav" aria-label="Order filters">
+          ${FILTERS.map(([k, l, ic]) => `<button data-nav data-filter="${k}" class="${activeFilter === k ? 'on' : ''}" ${activeFilter === k ? 'aria-current="page"' : ''}>${ic}<span>${l}</span><i class="nav-count">${filterCount[k]}</i></button>`).join('')}
+        </nav>
+        <p class="side-label">Tindakan</p>
+        <nav class="admin-nav" aria-label="Actions">
+          <button data-nav data-scan>${icon.scan}<span>Scan Order QR</span></button>
+          ${permission() === 'default' ? `<button data-nav data-bell>🔔<span>Hidupkan order alerts</span></button>` : permission() === 'granted' ? `<span class="side-note">🔔 Order alerts aktif</span>` : ''}
+        </nav>
+        <div class="admin-foot">
+          ${Store.isAdmin() ? `<a href="#/admin">${icon.chart}<span>Admin Panel</span></a>` : ''}
+          <a href="#/home">${icon.store}<span>Customer App</span></a>
+          <button data-logout>${icon.logout}<span>Log out</span></button>
+        </div>
+      </aside>
+      <main class="admin-main">
+      <header class="admin-head">
+        ${drawerButton(staffDrawer, filterCount.todo)}
+        <div class="admin-title"><h1>Pickup Counter</h1><small>${fmtDate(today)} • ${modeBadge}</small></div>
+        <div class="admin-head-actions">
+          ${permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : ''}
+          <button class="btn btn-primary btn-sm head-scan" data-scan aria-label="Scan QR">${icon.scan}<span class="hide-sm">Scan QR</span></button>
         </div>
       </header>
+      <section class="staff">
       <div class="staff-stats">
         <div class="stat"><b>${todays.length}</b><small>Today</small></div>
         <div class="stat"><b>${cnt((o) => ['Pending Confirmation', 'Order Accepted', 'Preparing'].includes(o.status))}</b><small>To prepare</small></div>
@@ -167,10 +212,17 @@ export const staff = {
           </section>`;
         }).join('') : `<div class="empty"><div class="empty-emoji">🎉</div><h3>All clear!</h3><p>No orders in this view.</p></div>`}
       </div>
-    </section>`;
+      </section>
+      </main>
+    </div>`;
+  },
+  enter() {
+    staffDrawer.open = false;
+    document.body.classList.remove('no-scroll');
   },
   mount(root, ctx) {
     if (!Store.isStaff()) return;
+    bindDrawer(root, staffDrawer);
     $('[data-q]', root).addEventListener('input', (e) => { st.q = e.target.value; ctx.refresh({ keepFocus: '[data-q]' }); });
     $('[data-q]', root).addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -185,7 +237,7 @@ export const staff = {
       const bell = t.closest('[data-bell]');
       if (bell) return busy(bell, async () => { await enableNotifications(); toast('New-order alerts on 🔔', 'success'); ctx.refresh(); });
       const f = t.closest('[data-filter]');
-      if (f) { st.filter = f.dataset.filter; return ctx.refresh(); }
+      if (f) { st.filter = f.dataset.filter; st.q = ''; window.scrollTo(0, 0); return ctx.refresh(); }
       const card = t.closest('[data-id]');
       if (!card) return;
       const id = card.dataset.id;
