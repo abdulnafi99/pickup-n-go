@@ -10,6 +10,7 @@ import { waLink, reminderMessage, PAY_LABEL } from '../whatsapp.js';
 import { startScanner, parseOrderQR } from '../qr.js';
 import { openOrderModal, nextStatusBtn, deniedHTML } from './admin.js';
 import { logoSVG } from './customer.js';
+import { permission, enableNotifications, pushReminder } from '../push.js';
 
 const st = { q: '', filter: 'todo' };
 
@@ -28,6 +29,7 @@ function staffCard(o) {
       ${o.status === 'Pending Confirmation' ? `<button class="btn btn-primary btn-sm" data-status="Order Accepted">${icon.check} Accept</button>` : ''}
       ${o.status === 'Ready for Pickup' ? `<button class="btn btn-accent btn-sm" data-complete>✅ Complete</button>` : nextStatusBtn(o).replace('btn btn-accent', 'btn btn-accent btn-sm')}
       <a class="btn btn-wa btn-sm" href="${waLink(o.customer.phone, reminderMessage(o))}" target="_blank" rel="noopener" title="Send pickup reminder">${icon.whatsapp}</a>
+      ${o.pushSub && ACTIVE_STATUSES.includes(o.status) ? '<button class="btn btn-ghost btn-sm" data-push title="Push pickup reminder" aria-label="Push pickup reminder">🔔</button>' : ''}
       <button class="btn btn-ghost btn-sm" data-details>Details</button>
     </footer>
   </article>`;
@@ -137,6 +139,7 @@ export const staff = {
       <header class="staff-head">
         <div class="staff-brand"><span class="logo-mark">${logoSVG()}</span><div><strong>Pickup Counter</strong><small>${fmtDate(today)}</small></div></div>
         <div class="staff-head-actions">
+          ${permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : permission() === 'default' ? '<button class="btn btn-accent btn-sm" data-bell>🔔 Order alerts</button>' : ''}
           ${Store.isAdmin() ? `<a class="btn btn-ghost btn-sm" href="#/admin">${icon.chart} Admin</a>` : ''}
           <button class="btn btn-ghost btn-sm" data-logout>${icon.logout}</button>
         </div>
@@ -179,6 +182,8 @@ export const staff = {
       const t = e.target;
       if (t.closest('[data-logout]')) { await Store.logout(); toast('Logged out'); return ctx.go('#/home'); }
       if (t.closest('[data-scan]')) return openScanner();
+      const bell = t.closest('[data-bell]');
+      if (bell) return busy(bell, async () => { await enableNotifications(); toast('New-order alerts on 🔔', 'success'); ctx.refresh(); });
       const f = t.closest('[data-filter]');
       if (f) { st.filter = f.dataset.filter; return ctx.refresh(); }
       const card = t.closest('[data-id]');
@@ -189,6 +194,8 @@ export const staff = {
       const done = t.closest('[data-complete]');
       if (done) return busy(done, () => completeOrder(id));
       if (t.closest('[data-details]')) return openOrderModal(id, { staffMode: true });
+      const pb = t.closest('[data-push]');
+      if (pb) return busy(pb, async () => { await pushReminder(Store.order(id)); toast('Push reminder sent', 'success'); });
     });
   },
 };

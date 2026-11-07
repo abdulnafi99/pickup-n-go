@@ -4,7 +4,7 @@
  * - Stale-while-revalidate for static assets, fonts and CDN libraries
  * - Never caches Firebase / Firestore API traffic
  */
-const VERSION = 'png-v1.0.0';
+const VERSION = 'png-v1.1.0';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -24,6 +24,7 @@ const APP_SHELL = [
   './js/qr.js',
   './js/ui.js',
   './js/pwa.js',
+  './js/push.js',
   './js/food-art.js',
   './js/sample-data.js',
   './js/views/customer.js',
@@ -37,6 +38,7 @@ const APP_SHELL = [
   './icons/icon-512.png',
   './icons/maskable-512.png',
   './icons/apple-touch-icon.png',
+  './icons/badge-96.png',
 ];
 
 const CDN = [];
@@ -63,7 +65,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-const BYPASS = [/firestore\.googleapis\.com/, /identitytoolkit\.googleapis\.com/, /securetoken\.googleapis\.com/, /firebasestorage\.googleapis\.com/, /wa\.me/, /api\.whatsapp\.com/];
+const BYPASS = [/\/api\//, /firestore\.googleapis\.com/, /identitytoolkit\.googleapis\.com/, /securetoken\.googleapis\.com/, /firebasestorage\.googleapis\.com/, /wa\.me/, /api\.whatsapp\.com/];
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -124,4 +126,48 @@ self.addEventListener('fetch', (event) => {
 // Allow the page to trigger an immediate update.
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') self.skipWaiting();
+});
+
+// ---------------------------------------------------------------------------
+// Web Push
+// ---------------------------------------------------------------------------
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data && event.data.text() }; }
+  const title = data.title || 'PICK UP N GO';
+  const options = {
+    body: data.body || 'Ada kemas kini untuk pesanan anda.',
+    icon: data.icon || 'icons/icon-192.png',
+    badge: 'icons/badge-96.png',
+    tag: data.tag || 'png-update',
+    renotify: true,
+    vibrate: [120, 60, 120],
+    requireInteraction: !!data.requireInteraction,
+    data: { url: data.url || './index.html#/orders' },
+    actions: data.url ? [{ action: 'open', title: 'Lihat pesanan' }] : [],
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || './index.html#/orders', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const sameApp = wins.find((w) => w.url.startsWith(self.registration.scope));
+    if (sameApp) {
+      await sameApp.focus();
+      sameApp.postMessage({ type: 'navigate', url: target });
+      return;
+    }
+    await self.clients.openWindow(target);
+  })());
+});
+
+// Browser rotated the subscription: tell open pages so they can re-save it.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    wins.forEach((w) => w.postMessage({ type: 'pushsubscriptionchange' }));
+  })());
 });

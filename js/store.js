@@ -506,8 +506,12 @@ export const Store = {
     if (patch.status && o && patch.status !== o.status) {
       patch.history = [...(o.history || []), { status: patch.status, at: Date.now() }];
     }
+    const prevStatus = o?.status;
     const res = await this.backend.updateOrder(id, patch);
     emit('orders');
+    if (patch.status && patch.status !== prevStatus) {
+      try { this.onStatusChanged?.(res, prevStatus); } catch (e) { console.error(e); }
+    }
     return res;
   },
 

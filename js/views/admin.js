@@ -11,6 +11,7 @@ import { generateSlots } from '../pickup.js';
 import { waLink, reminderMessage, statusMessage, PAY_LABEL, locationName } from '../whatsapp.js';
 import { itemsHTML, totalsHTML, pickupInfoHTML, customerHTML, paymentHTML, printReceipt, downloadReceipt, viewImage, trackerHTML } from './shared.js';
 import { logoSVG } from './customer.js';
+import { permission, enableNotifications, pushReminder } from '../push.js';
 
 const TABS = [
   ['dashboard', 'Dashboard', icon.chart],
@@ -76,6 +77,7 @@ export function openOrderModal(id, { staffMode = false } = {}) {
             <a class="btn btn-wa btn-sm" href="${waLink(o.customer.phone, statusMessage(o))}" target="_blank" rel="noopener">${icon.whatsapp} Status Update</a>
             <a class="btn btn-wa btn-sm" href="${waLink(o.customer.phone, reminderMessage(o))}" target="_blank" rel="noopener">${icon.whatsapp} Pickup Reminder</a>
             <a class="btn btn-ghost btn-sm" href="tel:${esc(o.customer.phone)}">Call</a>
+            ${o.pushSub ? '<button class="btn btn-ghost btn-sm" data-push-remind>🔔 Push Reminder</button>' : '<small class="muted push-none">No push subscription</small>'}
           </div>
         </div>
         <div class="card"><h3>Items</h3>${itemsHTML(o)}${o.specialRequest ? `<p class="special">🗒️ ${esc(o.specialRequest)}</p>` : ''}${totalsHTML(o, { promo: o.promoCode })}</div>
@@ -109,6 +111,7 @@ export function openOrderModal(id, { staffMode = false } = {}) {
       const status = b.dataset.pay;
       busy(b, async () => { await Store.updateOrder(id, { payment: { ...o.payment, status } }); toast(`Payment ${status}`, status === 'Rejected' ? 'error' : 'success'); });
     } else if (b.hasAttribute('data-view-receipt')) modal(viewImage(o.payment.receipt), { title: 'Payment Receipt' });
+    else if (b.hasAttribute('data-push-remind')) busy(b, async () => { await pushReminder(o); toast('Push reminder sent', 'success'); });
     else if (b.hasAttribute('data-print')) printReceipt(o);
     else if (b.hasAttribute('data-download')) busy(b, () => downloadReceipt(o));
   });
@@ -600,6 +603,7 @@ export const admin = {
         <header class="admin-head">
           <div><h1>${tab[1]}</h1><small>${fmtDate(todayStr())} • ${esc(Store.user.name || Store.user.email)}</small></div>
           <div class="admin-head-actions">
+            ${permission() === 'default' ? '<button class="btn btn-ghost btn-sm" data-bell>🔔 Enable order alerts</button>' : permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : ''}
             ${pending ? `<a class="btn btn-accent btn-sm" href="#/admin/orders?s=Pending Confirmation">${pending} pending</a>` : ''}
           </div>
         </header>
@@ -615,6 +619,8 @@ export const admin = {
       const t = e.target;
       const open = t.closest('[data-open]');
       if (t.closest('[data-logout]')) { await Store.logout(); toast('Logged out'); return ctx.go('#/home'); }
+      const bell = t.closest('[data-bell]');
+      if (bell) return busy(bell, async () => { await enableNotifications(); toast('New-order alerts on 🔔', 'success'); ctx.refresh(); });
       const quick = t.closest('[data-quick]');
       if (quick) {
         e.stopPropagation();

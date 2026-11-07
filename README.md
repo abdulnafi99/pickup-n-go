@@ -58,6 +58,20 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - `manifest.json` (ikon, maskable, shortcuts), `sw.js` (precache app shell, stale-while-revalidate, network-first navigation), `offline.html` fallback, banner offline, butang install (Android/desktop) + arahan iPhone.
 - Penjana & pengimbas QR dibundel dalam `js/vendor/` supaya berfungsi offline.
 
+## Push notification
+
+- **Customer**: tekan *Hidupkan Notifikasi* (halaman pesanan atau Profile). Bila staff/admin tukar status pesanan (Accepted → Preparing → **Ready for Pickup** → Completed), pelanggan terima notifikasi push walaupun app ditutup. Staff/admin juga boleh hantar *Push Reminder* untuk pickup.
+- **Staff/Admin**: butang 🔔 *Order alerts* — notifikasi pesanan baru masuk semasa panel staff/admin dibuka (termasuk tab di belakang).
+- Push dihantar oleh fungsi serverless **`/api/push`** (Vercel) menggunakan VAPID. Mesej dibina di server daripada templat tetap, dan hanya endpoint push service yang sah (Google/Mozilla/Apple/Microsoft) diterima.
+- Pemboleh ubah persekitaran Vercel yang diperlukan: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (contoh `mailto:owner@kedai.my`). Jana kunci baharu dengan `npx web-push generate-vapid-keys`.
+- **iPhone/iPad**: notifikasi hanya berfungsi selepas app dipasang ke Home Screen (iOS 16.4+), dan mesti dihidupkan dari app yang dipasang itu.
+- Tanpa `/api/push` (contoh `python3 -m http.server`), app guna notifikasi dalam-app sahaja.
+- Demo mode: data pesanan hanya ada dalam browser yang sama, jadi push dari admin ke pelanggan di peranti lain memerlukan Firebase mode (subscription disimpan pada pesanan sebagai `pushSub`).
+
+## Safe area (telefon berskrin notch)
+
+Layout menggunakan `viewport-fit=cover` dengan `env(safe-area-inset-*)` untuk semua sisi: jalur status bar berwarna, header, bar navigasi bawah, butang checkout, modal, toast dan panel admin/staff dijauhkan daripada notch, Dynamic Island dan home indicator, termasuk mod landscape. Input menggunakan saiz 16px pada peranti sentuh supaya iOS tidak zoom.
+
 ## Struktur fail
 
 ```
@@ -73,6 +87,8 @@ js/whatsapp.js        Mesej WhatsApp auto-jana
 js/qr.js              Jana & imbas QR
 js/ui.js              Ikon, toast, modal, loader
 js/pwa.js             Service worker, install prompt, status online
+js/push.js            Web Push + notifikasi tempatan
+api/push.js           Fungsi serverless Vercel untuk hantar push (web-push)
 js/food-art.js        Ilustrasi makanan SVG (offline)
 js/sample-data.js     Menu, kategori, tetapan & akaun demo
 js/views/             customer.js, admin.js, staff.js, shared.js

@@ -61,12 +61,16 @@ service cloud.firestore {
       // Staff/admin manage everything. Customers may only:
       //  - upload/replace a payment receipt (payment status stays/returns to Pending)
       //  - cancel while still 'Pending Confirmation'
+      //  - attach/remove their Web Push subscription (pushSub)
       allow update: if isStaff() || (
         signedIn()
         && resource.data.customer.uid == request.auth.uid
-        && changed().hasOnly(['payment', 'status', 'history', 'updatedAt'])
-        && request.resource.data.payment.method == resource.data.payment.method
-        && request.resource.data.payment.status == 'Pending'
+        && changed().hasOnly(['payment', 'status', 'history', 'updatedAt', 'pushSub'])
+        && (
+          request.resource.data.payment == resource.data.payment ||
+          (request.resource.data.payment.method == resource.data.payment.method
+            && request.resource.data.payment.status == 'Pending')
+        )
         && (
           request.resource.data.status == resource.data.status ||
           (resource.data.status == 'Pending Confirmation' && request.resource.data.status == 'Cancelled')

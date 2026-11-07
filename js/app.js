@@ -6,6 +6,7 @@ import { Cart } from './cart.js';
 import { $ } from './utils.js';
 import { icon, toast, closeAllModals } from './ui.js';
 import { initPWA } from './pwa.js';
+import { startOrderWatcher, pushOrderStatus, refreshSubscription } from './push.js';
 import * as C from './views/customer.js';
 import { admin } from './views/admin.js';
 import { staff } from './views/staff.js';
@@ -135,6 +136,18 @@ async function boot() {
   if (Store.initError) toast('Could not connect to Firebase — running in demo mode.', 'error', 5000);
 
   Store.on(onDataChange);
+  // Notifications: push to the customer when staff change status, plus local alerts.
+  Store.onStatusChanged = (order) => { if (Store.isStaff()) pushOrderStatus(order); };
+  startOrderWatcher();
+  refreshSubscription();
+  window.addEventListener('notify:change', () => render(false));
+  // Notification clicks from the service worker
+  navigator.serviceWorker?.addEventListener('message', (e) => {
+    if (e.data?.type === 'navigate' && e.data.url) {
+      const hash = e.data.url.includes('#') ? e.data.url.slice(e.data.url.indexOf('#')) : '#/home';
+      go(hash);
+    }
+  });
   window.addEventListener('cart:change', () => {
     updateNav();
     if (current?.view === C.cart || current?.view === C.checkout) {

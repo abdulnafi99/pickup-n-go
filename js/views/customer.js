@@ -13,6 +13,7 @@ import { waLink, orderToShopMessage, shareMessage, contactShopLink, openWhatsApp
 import { renderQR, orderQRText } from '../qr.js';
 import { itemsHTML, totalsHTML, trackerHTML, pickupInfoHTML, customerHTML, paymentHTML, downloadReceipt, viewImage } from './shared.js';
 import { installState, promptInstall } from '../pwa.js';
+import { notifySupport, permission, savedSubscription, enableNotifications, disableNotifications, sendTestNotification, rememberMyOrder, myOrderIds } from '../push.js';
 
 const catName = (id) => CATEGORIES.find((c) => c.id === id)?.name || id;
 const catIcon = (id) => CATEGORIES.find((c) => c.id === id)?.icon || '🍽️';
@@ -20,7 +21,8 @@ const isFav = (id) => (Store.user.favourites || []).includes(id);
 
 function myOrders() {
   const u = Store.user;
-  return Store.orders.filter((o) => o.customer?.uid === u.id || (u.phone && o.customer?.phone === u.phone));
+  const local = new Set(myOrderIds());
+  return Store.orders.filter((o) => local.has(o.id) || o.customer?.uid === u.id || (u.role === 'customer' && u.phone && o.customer?.phone === u.phone));
 }
 
 // ---------------------------------------------------------------------------
@@ -95,6 +97,53 @@ const sectionHead = (title, link, linkText = 'See all') =>
 
 const emptyState = (emoji, title, text, action = '') =>
   `<div class="empty"><div class="empty-emoji">${emoji}</div><h3>${esc(title)}</h3><p>${esc(text)}</p>${action}</div>`;
+
+// ---------------------------------------------------------------------------
+// Notification opt-in card (order page + profile)
+// ---------------------------------------------------------------------------
+function notifyCardHTML({ compact = false } = {}) {
+  const sup = notifySupport();
+  const perm = permission();
+  const push = !!savedSubscription();
+  let body;
+  if (sup.needsInstall) {
+    body = `<p>Di iPhone/iPad, notifikasi hanya berfungsi selepas app dipasang: tekan <b>Share</b> → <b>Add to Home Screen</b>, kemudian buka PICK UP N GO dari Home Screen.</p>`;
+  } else if (!sup.supported) {
+    body = `<p>Browser ini tidak menyokong notifikasi. Anda masih boleh semak status di <b>My Orders</b>.</p>`;
+  } else if (perm === 'denied') {
+    body = `<p>Notifikasi disekat. Benarkan notifikasi untuk laman ini dalam tetapan browser / telefon, kemudian muat semula.</p>`;
+  } else if (perm === 'granted') {
+    body = `<p class="ok">✓ Notifikasi aktif${push ? ' — anda akan dimaklumkan walaupun app ditutup.' : ' (dalam app sahaja — push server tidak tersedia).'}</p>
+      <div class="btn-row"><button class="btn btn-ghost btn-sm" data-notify-test>Hantar ujian</button>${compact ? '' : '<button class="btn btn-ghost btn-sm" data-notify-off>Matikan</button>'}</div>`;
+  } else {
+    body = `<p>Kami akan beritahu bila pesanan anda disahkan, sedang disediakan dan <b>sedia untuk diambil</b>.</p>
+      <button class="btn btn-primary btn-block" data-notify-on>🔔 Hidupkan Notifikasi</button>`;
+  }
+  if (compact && perm === 'granted') return '';
+  return `<div class="card notify-card"><div class="notify-head"><span class="notify-ico">🔔</span><h3>Notifikasi Pesanan</h3></div>${body}</div>`;
+}
+
+function bindNotify(root, ctx) {
+  root.addEventListener('click', (e) => {
+    const on = e.target.closest('[data-notify-on]');
+    const off = e.target.closest('[data-notify-off]');
+    const test = e.target.closest('[data-notify-test]');
+    if (on) {
+      busy(on, async () => {
+        const r = await enableNotifications();
+        toast(r.push ? 'Notifikasi push diaktifkan 🔔' : 'Notifikasi dalam app diaktifkan', 'success');
+        ctx.refresh();
+      });
+    } else if (off) {
+      busy(off, async () => { await disableNotifications(); toast('Notifikasi dimatikan'); ctx.refresh(); });
+    } else if (test) {
+      busy(test, async () => {
+        const via = await sendTestNotification();
+        toast(via === 'push' ? 'Push ujian dihantar — semak notifikasi anda' : 'Notifikasi ujian dipaparkan', 'success');
+      });
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 // WELCOME (onboarding)
@@ -883,9 +932,11 @@ async function placeOrder(ctx) {
     payment: { method: draft.payment, status: payStatus, receipt },
     status: 'Pending Confirmation',
     history: [{ status: 'Pending Confirmation', at: now }],
+    pushSub: permission() === 'granted' ? savedSubscription() : null,
   };
 
   await Store.createOrder(order, () => assertSlotBookable(order.pickupDate, order.pickupTime));
+  rememberMyOrder(order.id);
 
   if (draft.saveProfile) {
     Store.saveProfile({ name: order.customer.name, phone: order.customer.phone, email: order.customer.email }).catch(() => {});
@@ -964,6 +1015,8 @@ export const order = {
         ${trackerHTML(o)}
       </div>
 
+      ${['Completed', 'Cancelled'].includes(o.status) ? '' : notifyCardHTML({ compact: true })}
+
       <div class="card"><h3>Pickup Details</h3>${pickupInfoHTML(o)}</div>
 
       <div class="card"><h3>Ordered Items</h3>${itemsHTML(o)}
@@ -991,6 +1044,7 @@ export const order = {
   mount(root, ctx) {
     const o = Store.order(ctx.params[0]);
     if (!o) return;
+    bindNotify(root, ctx);
     renderQR($('[data-qr]', root), orderQRText(o.id), 160);
     const demoQR = $('[data-demo-qr]', root);
     if (demoQR) renderQR(demoQR, 'DUITNOW-DEMO|PICK UP N GO|' + o.total.toFixed(2), 180);
@@ -1158,6 +1212,8 @@ export const profile = {
         ${favs.length ? `<div class="grid">${favs.map((m) => foodCard(m)).join('')}</div>` : '<p class="muted">Tap the ♥ on any menu to save it here.</p>'}
       </div>
 
+      ${notifyCardHTML()}
+
       <div class="card">
         <a class="menu-link" href="#/orders">${icon.receipt} My Orders ${icon.chevronRight}</a>
         <a class="menu-link" href="${contactShopLink()}" target="_blank" rel="noopener">${icon.whatsapp} Contact Shop on WhatsApp ${icon.chevronRight}</a>
@@ -1176,6 +1232,7 @@ export const profile = {
   },
   mount(root, ctx) {
     bindCards(root, ctx);
+    bindNotify(root, ctx);
     $('[data-profile]', root).addEventListener('submit', (e) => {
       e.preventDefault();
       const f = Object.fromEntries(new FormData(e.target));
