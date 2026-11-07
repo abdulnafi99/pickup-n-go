@@ -552,8 +552,13 @@ class FirebaseBackend {
   /** Admin helper: seed sample menu + default settings into an empty project. */
   async seedMenu() {
     const batch = this.db.batch();
+    // Sample items use fixed ids (m01…m24): re-seeding updates them and never touches
+    // menu items the shop added itself.
     SAMPLE_MENU.forEach(({ id, ...m }) => batch.set(this.db.collection('menu').doc(id), m));
-    batch.set(this.db.collection('settings').doc('main'), DEFAULT_SETTINGS, { merge: true });
+    // Only create default settings if none exist yet — never overwrite the shop's own.
+    const settingsRef = this.db.collection('settings').doc('main');
+    const existing = await settingsRef.get().catch(() => null);
+    if (!existing?.exists) batch.set(settingsRef, DEFAULT_SETTINGS);
     await batch.commit();
   }
 }

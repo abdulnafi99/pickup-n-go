@@ -317,7 +317,8 @@ function textToVariants(text) {
 
 function openMenuForm(id) {
   const existing = id ? Store.menuItem(id) : null;
-  const m = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('m_'), name: '', desc: '', price: '', category: CATEGORIES[0].id, art: 'nasi-lemak', image: '', available: true, featured: false, popular: false, recommended: false, prepMin: 10, kcal: '', serves: 1, rating: 4.5, variants: [], createdAt: Date.now() };
+  const CAT_ART = { 'rice-noodles': 'nasi-lemak', 'main-course': 'ayam-goreng', snacks: 'karipap', desserts: 'cendol', drinks: 'kopi', kuih: 'kuih-lapis', combo: 'combo-nasi-lemak' };
+  const m = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('m_'), name: '', desc: '', price: '', category: CATEGORIES[0].id, art: CAT_ART[CATEGORIES[0].id], image: '', available: true, featured: false, popular: false, recommended: false, prepMin: 10, kcal: '', serves: 1, rating: 4.5, variants: [], createdAt: Date.now() };
   const md = modal(`<form class="form menu-form" data-mform>
       <div class="mf-preview" data-preview>${itemVisual(m)}</div>
       <div class="mf-img-row">
@@ -349,7 +350,15 @@ function openMenuForm(id) {
   const form = $('[data-mform]', md.el);
   let newImage = null;
   const preview = () => { $('[data-preview]', md.el).innerHTML = itemVisual({ ...m, art: form.art.value, image: newImage ?? m.image }); };
-  form.art.addEventListener('change', preview);
+  // Illustration follows the category until the admin picks one explicitly.
+  // (Items saved by the old form defaulted to 'nasi-lemak' regardless of category — treat that as untouched.)
+  const legacyDefault = existing && existing.art === 'nasi-lemak' && existing.category !== 'rice-noodles' && !existing.image;
+  let artTouched = !!existing && !legacyDefault && existing.art !== CAT_ART[existing.category];
+  if (legacyDefault && CAT_ART[m.category]) { form.art.value = CAT_ART[m.category]; preview(); }
+  form.art.addEventListener('change', () => { artTouched = true; preview(); });
+  form.category.addEventListener('change', () => {
+    if (!artTouched && CAT_ART[form.category.value]) { form.art.value = CAT_ART[form.category.value]; preview(); }
+  });
   $('[data-img]', md.el).addEventListener('change', async (e) => {
     try {
       newImage = await compressImage(e.target.files[0], 700, 0.8);
