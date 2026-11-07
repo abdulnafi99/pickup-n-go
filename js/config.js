@@ -10,7 +10,18 @@
 // firestore.rules and storage.rules from this repo. See README.md.
 // ---------------------------------------------------------------------------
 
-export const FIREBASE_CONFIG = null;
+// Firebase project: pickup-n-go
+// (A Firebase web config is not a secret — access is controlled by firestore.rules / storage.rules.)
+export const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyB-kayPH3IS6M1--dSsOQizJnzWEmLOnXk',
+  authDomain: 'pickup-n-go.firebaseapp.com',
+  databaseURL: 'https://pickup-n-go-default-rtdb.asia-southeast1.firebasedatabase.app',
+  projectId: 'pickup-n-go',
+  storageBucket: 'pickup-n-go.firebasestorage.app',
+  messagingSenderId: '459006020018',
+  appId: '1:459006020018:web:337df33f048138507b7cab',
+  measurementId: 'G-MTZ7KPTNKC',
+};
 /* Example:
 export const FIREBASE_CONFIG = {
   apiKey: 'AIza...',

@@ -96,19 +96,21 @@ js/vendor/            qrcode-generator (MIT), jsQR (Apache-2.0)
 firestore.rules  storage.rules  firebase.json
 ```
 
-## Tukar ke Firebase (production)
+## Firebase (production)
 
-1. Cipta projek Firebase. Aktifkan **Authentication** (Email/Password **dan** Anonymous), **Cloud Firestore** dan **Storage**.
-2. Tambah Web App dan salin config ke `js/config.js` (`FIREBASE_CONFIG = {...}`).
-3. Deploy rules & hosting:
-   ```bash
-   npm i -g firebase-tools
-   firebase login
-   firebase use --add
-   firebase deploy --only firestore:rules,storage,hosting
-   ```
-4. Cipta akaun admin di **Authentication → Add user**. Kemudian di Firestore, cipta/ubah dokumen `users/{uid}` dengan `role: "admin"` (atau `"staff"`).
-5. Log masuk di `#/login`, pergi ke **Admin → Menu → Seed sample menu** untuk masukkan menu contoh, kemudian tetapkan nombor WhatsApp & DuitNow QR di **Shop & Payment**.
+Config projek **`pickup-n-go`** sudah dimasukkan dalam `js/config.js` dan Firebase SDK dibundel dalam `js/vendor/firebase/`. Selagi servis di bawah belum diaktifkan, app berjalan dalam **mod demo** dan memaparkan sebabnya (Profile → Demo Mode, dan bahagian atas panel Admin). Selepas diaktifkan, muat semula app dan ia akan bertukar ke Firebase secara automatik.
+
+1. **Authentication** → *Get started* → tab **Sign-in method** → aktifkan **Anonymous** dan **Email/Password**.
+2. **Firestore Database** → *Create database* → pilih lokasi (cadangan `asia-southeast1`, Singapura) → *Production mode*.
+3. **Firestore → Rules** → padam kandungan sedia ada, tampal semua isi `firestore.rules` dari repo ini → **Publish**.
+4. **Akaun admin pertama**
+   - Authentication → Users → **Add user** (email + password).
+   - Buka app → Profile → *Staff / Admin Login* → log masuk sekali (ini mencipta dokumen `users/{uid}`).
+   - Firestore → koleksi `users` → dokumen dengan UID tadi → tukar medan `role` daripada `customer` kepada `admin` (atau `staff` untuk pekerja kaunter).
+   - Muat semula app → log masuk semula → **Admin → Menu → Seed sample menu** untuk masukkan menu & tetapan contoh.
+5. **Storage (pilihan)** — memerlukan pelan Blaze. Jika tidak diaktifkan, gambar menu dan resit DuitNow disimpan terus dalam Firestore (dimampatkan, had ~500KB). Jika diaktifkan, tampal `storage.rules` di Storage → Rules.
+
+Atau guna Firebase CLI: `firebase deploy --only firestore:rules,storage`.
 
 Nota keselamatan:
 - Pelanggan log masuk secara anonymous; mereka hanya boleh baca/ubah pesanan sendiri (upload resit, batal semasa *Pending Confirmation*). Status pembayaran hanya boleh disahkan oleh staff/admin.

@@ -1224,6 +1224,7 @@ export const profile = {
 
       ${Store.mode === 'demo' ? `<div class="card demo-card">
           <h3>Demo Mode</h3>
+          ${Store.initError ? `<div class="alert alert-warn"><b>Firebase belum aktif:</b> ${esc(Store.initError.message)}</div>` : ''}
           <p class="muted">Data is stored on this device (LocalStorage). Open <b>#/admin</b> or <b>#/staff</b> in another tab to see orders update live.</p>
           <button class="btn btn-ghost btn-block" data-reset>Reset demo data</button>
         </div>` : ''}

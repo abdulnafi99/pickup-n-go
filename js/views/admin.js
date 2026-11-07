@@ -607,7 +607,10 @@ export const admin = {
             ${pending ? `<a class="btn btn-accent btn-sm" href="#/admin/orders?s=Pending Confirmation">${pending} pending</a>` : ''}
           </div>
         </header>
-        <div class="admin-body">${body}</div>
+        <div class="admin-body">
+          ${Store.initError ? `<div class="alert alert-warn"><b>Firebase belum aktif — mod demo.</b> ${esc(Store.initError.message)} Muat semula halaman selepas diaktifkan.</div>` : ''}
+          ${body}
+        </div>
       </main>
     </div>`;
   },

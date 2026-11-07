@@ -133,7 +133,10 @@ async function boot() {
     $('#boot').innerHTML = `<div class="boot-error"><h2>Unable to start</h2><p>${e.message}</p><button onclick="location.reload()">Retry</button></div>`;
     return;
   }
-  if (Store.initError) toast('Could not connect to Firebase — running in demo mode.', 'error', 5000);
+  if (Store.initError && !sessionStorage.getItem('png_fb_warned')) {
+    sessionStorage.setItem('png_fb_warned', '1');
+    toast('Firebase belum siap — app berjalan dalam mod demo buat sementara.', 'error', 6000);
+  }
 
   Store.on(onDataChange);
   // Notifications: push to the customer when staff change status, plus local alerts.

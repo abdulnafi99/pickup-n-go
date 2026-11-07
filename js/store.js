@@ -250,6 +250,63 @@ class LocalBackend {
   async seedMenu() {}
 }
 
+function withTimeout(promise, ms, code) {
+  let t;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => { t = setTimeout(() => reject(Object.assign(new Error(code), { code })), ms); }),
+  ]).finally(() => clearTimeout(t));
+}
+
+/** Fast check that Firestore exists, is enabled and has our rules deployed. */
+async function probeFirestore(config) {
+  if (!navigator.onLine) return;
+  const url = `https://firestore.googleapis.com/v1/projects/${config.projectId}/databases/(default)/documents/settings/main?key=${config.apiKey}`;
+  let res;
+  try {
+    res = await withTimeout(fetch(url, { cache: 'no-store' }), 6000, 'probe-timeout');
+  } catch {
+    return; // offline / flaky network: let the SDK and its cache handle it
+  }
+  if (res.ok) return;
+  const body = await res.json().catch(() => ({}));
+  const msg = body?.error?.message || '';
+  if (res.status === 404 && !/does not exist|database/i.test(msg)) return; // settings doc not created yet — fine
+  let text = `Firestore error ${res.status}: ${msg}`;
+  if (/has not been used|is disabled|SERVICE_DISABLED/i.test(msg)) text = 'Cloud Firestore belum diaktifkan. Firebase Console → Firestore Database → Create database.';
+  else if (res.status === 404) text = 'Pangkalan data Firestore (default) belum dicipta. Firebase Console → Firestore Database → Create database.';
+  else if (res.status === 403) text = 'Firestore menolak akses — security rules app ini belum dipasang. Firebase Console → Firestore → Rules → tampal kandungan firestore.rules → Publish.';
+  throw Object.assign(new Error(text), { code: `firestore/${res.status}` });
+}
+
+/** Turn Firebase setup errors into actionable messages for the shop owner. */
+function friendlyFirebaseError(e, stage) {
+  const code = String(e?.code || '');
+  const msg = String(e?.message || '');
+  let text;
+  if (code === 'auth/configuration-not-found' || msg.includes('CONFIGURATION_NOT_FOUND')) {
+    text = 'Firebase Authentication belum disediakan. Buka Firebase Console → Authentication → Get started, kemudian aktifkan Anonymous dan Email/Password.';
+  } else if (code === 'auth/admin-restricted-operation' || code === 'auth/operation-not-allowed') {
+    text = 'Log masuk Anonymous belum diaktifkan. Firebase Console → Authentication → Sign-in method → Anonymous → Enable.';
+  } else if (code === 'auth/unauthorized-domain') {
+    text = 'Domain ini belum dibenarkan. Firebase Console → Authentication → Settings → Authorized domains → tambah domain app.';
+  } else if (stage === 'firestore' && (code === 'permission-denied' || /has not been used|disabled|not found|NOT_FOUND/i.test(msg))) {
+    text = /permission/i.test(code) && !/disabled|not been used/i.test(msg)
+      ? 'Firestore menolak akses. Deploy firestore.rules dari repo ini (Firebase Console → Firestore → Rules).'
+      : 'Cloud Firestore belum diaktifkan. Firebase Console → Firestore Database → Create database.';
+  } else if (/timeout/.test(code) || code === 'unavailable') {
+    text = stage === 'firestore'
+      ? 'Tidak dapat menghubungi Cloud Firestore (belum diaktifkan atau tiada internet).'
+      : 'Tidak dapat log masuk ke Firebase (tiada internet atau Authentication belum diaktifkan).';
+  } else {
+    text = `Firebase error: ${code || msg}`;
+  }
+  const err = new Error(text);
+  err.code = code;
+  err.cause = e;
+  return err;
+}
+
 // ---------------------------------------------------------------------------
 // Firebase backend (Auth + Firestore + Storage, compat SDK, loaded on demand)
 // ---------------------------------------------------------------------------
@@ -263,7 +320,10 @@ class FirebaseBackend {
 
   async init(state) {
     this.state = state;
-    const base = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
+    // Firebase compat SDK v${FIREBASE_SDK_VERSION}, bundled locally (Apache-2.0) so the app
+    // works offline and doesn't depend on a third-party CDN.
+    const base = 'js/vendor/firebase';
+    void FIREBASE_SDK_VERSION;
     await loadScript(`${base}/firebase-app-compat.js`);
     await Promise.all([
       loadScript(`${base}/firebase-auth-compat.js`),
@@ -280,9 +340,15 @@ class FirebaseBackend {
       await this.db.enablePersistence({ synchronizeTabs: true });
     } catch { /* offline persistence unavailable — fine */ }
 
-    await new Promise((resolve, reject) => {
+    // 1) Is Cloud Firestore ready? Quick REST probe of the public settings doc.
+    //    Network failures are ignored (offline launch uses the Firestore cache).
+    await probeFirestore(this.config);
+
+    // 2) Sign in (anonymous for customers) and load the profile
+    await withTimeout(new Promise((resolve, reject) => {
       let first = true;
       this.auth.onAuthStateChanged(async (u) => {
+        if (this.dead) return; // init failed and the app fell back to demo mode
         try {
           if (!u) {
             await this.auth.signInAnonymously();
@@ -292,11 +358,11 @@ class FirebaseBackend {
           this.subscribe();
           if (first) { first = false; resolve(); } else emit('auth');
         } catch (e) {
-          if (first) reject(e);
+          if (first) reject(friendlyFirebaseError(e, 'auth'));
           else console.error(e);
         }
       });
-    });
+    }), 15000, 'auth-timeout');
   }
 
   async loadUser(u) {
@@ -417,9 +483,17 @@ class FirebaseBackend {
   }
 
   async uploadImage(dataUrl, path) {
-    const ref = this.storage.ref().child(path);
-    await ref.put(dataUrlToBlob(dataUrl), { contentType: 'image/jpeg' });
-    return ref.getDownloadURL();
+    try {
+      const ref = this.storage.ref().child(path);
+      await withTimeout(ref.put(dataUrlToBlob(dataUrl), { contentType: 'image/jpeg' }), 30000, 'storage-timeout');
+      return await ref.getDownloadURL();
+    } catch (e) {
+      // Storage not set up (or not on the Blaze plan): keep the compressed image
+      // inline in Firestore instead, as long as it fits well under the 1 MB doc limit.
+      console.warn('Firebase Storage upload failed, storing image inline:', e.code || e.message);
+      if (dataUrl.length < 700000) return dataUrl;
+      throw new Error('Image is too large to save. Please use a smaller photo.');
+    }
   }
 
   slotCount(date, time) {
@@ -459,6 +533,8 @@ export const Store = {
       await this.backend.init(this.state);
     } catch (e) {
       console.error('Backend init failed, falling back to demo mode', e);
+      this.backend.dead = true;
+      this.backend.unsubs?.forEach((fn) => fn());
       this.backend = new LocalBackend();
       await this.backend.init(this.state);
       this.initError = e;
