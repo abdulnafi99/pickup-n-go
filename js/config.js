@@ -33,6 +33,10 @@ export const FIREBASE_CONFIG = {
 };
 */
 
+// Owner accounts (Firebase Auth UIDs) that are always admin. The real check is in
+// firestore.rules / storage.rules — keep this list identical to the one there.
+export const OWNER_UIDS = ['PkevnbnKlTMVT81wuHertzKKaL73'];
+
 export const FIREBASE_SDK_VERSION = '10.12.2';
 
 export const APP_VERSION = '1.0.0';

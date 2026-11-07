@@ -5,8 +5,9 @@ service firebase.storage {
   match /b/{bucket}/o {
 
     function signedIn() { return request.auth != null; }
+    function isOwner() { return request.auth.uid in ['PkevnbnKlTMVT81wuHertzKKaL73']; }
     function role() {
-      return firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+      return isOwner() ? 'admin' : firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
         ? firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role
         : 'customer';
     }

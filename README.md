@@ -103,7 +103,7 @@ Config projek **`pickup-n-go`** sudah dimasukkan dalam `js/config.js` dan Fireba
 1. **Authentication** → *Get started* → tab **Sign-in method** → aktifkan **Anonymous** dan **Email/Password**.
 2. **Firestore Database** → *Create database* → pilih lokasi (cadangan `asia-southeast1`, Singapura) → *Production mode*.
 3. **Firestore → Rules** → padam kandungan sedia ada, tampal semua isi `firestore.rules` dari repo ini → **Publish**.
-4. **Akaun admin pertama**
+4. **Akaun pemilik (admin)** — UID dalam senarai `isOwner()` di `firestore.rules` / `storage.rules` (dan `OWNER_UIDS` dalam `js/config.js`) sentiasa menjadi admin. Untuk menambah admin lain tanpa Console, tambah UID mereka di ketiga-tiga tempat itu dan publish semula rules. Cara lain (manual):
    - Authentication → Users → **Add user** (email + password).
    - Buka app → Profile → *Staff / Admin Login* → log masuk sekali (ini mencipta dokumen `users/{uid}`).
    - Firestore → koleksi `users` → dokumen dengan UID tadi → tukar medan `role` daripada `customer` kepada `admin` (atau `staff` untuk pekerja kaunter).

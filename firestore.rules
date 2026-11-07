@@ -7,10 +7,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     function signedIn() { return request.auth != null; }
+
+    // Shop owner accounts — always admin, no console edit needed.
+    // Add more Firebase Auth UIDs here to grant admin access (keep in sync with js/config.js OWNER_UIDS).
+    function isOwner() {
+      return signedIn() && request.auth.uid in [
+        'PkevnbnKlTMVT81wuHertzKKaL73'  // nafiqking (owner)
+      ];
+    }
+
     function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)); }
     function role() {
-      return signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        ? userDoc().data.role : 'customer';
+      return isOwner() ? 'admin'
+        : signedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          ? userDoc().data.role : 'customer';
     }
     function isAdmin() { return role() == 'admin'; }
     function isStaff() { return role() in ['staff', 'admin']; }
@@ -29,9 +39,9 @@ service cloud.firestore {
     // ---- Users / profiles ---------------------------------------------------
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
-      // Self-registration is always as a customer.
+      // Self-registration is always as a customer (owners register as admin).
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.role == 'customer';
+        && (request.resource.data.role == 'customer' || (isOwner() && request.resource.data.role == 'admin'));
       // Users may edit their own profile but never their role.
       allow update: if signedIn() && (
         isAdmin() ||

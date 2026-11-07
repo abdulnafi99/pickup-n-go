@@ -4,7 +4,7 @@
 //   • FirebaseBackend — Firebase Auth + Firestore + Storage
 // Views only talk to `Store`, never to a backend directly.
 // ---------------------------------------------------------------------------
-import { FIREBASE_CONFIG, FIREBASE_SDK_VERSION } from './config.js';
+import { FIREBASE_CONFIG, FIREBASE_SDK_VERSION, OWNER_UIDS } from './config.js';
 import { SAMPLE_MENU, DEFAULT_SETTINGS, DEMO_USERS } from './sample-data.js';
 import { uid, todayStr, addDays, orderId, loadScript, dataUrlToBlob } from './utils.js';
 
@@ -379,9 +379,14 @@ class FirebaseBackend {
     const ref = this.db.collection('users').doc(u.uid);
     const snap = await ref.get();
     let data = snap.exists ? snap.data() : null;
+    const owner = !u.isAnonymous && OWNER_UIDS.includes(u.uid);
     if (!data) {
-      data = { name: '', phone: '', email: u.email || '', role: 'customer', favourites: [], createdAt: Date.now() };
+      data = { name: '', phone: '', email: u.email || '', role: owner ? 'admin' : 'customer', favourites: [], createdAt: Date.now() };
       await ref.set(data);
+    } else if (owner && data.role !== 'admin') {
+      // Owner listed in the rules: keep the profile document in sync.
+      data.role = 'admin';
+      await ref.set({ role: 'admin' }, { merge: true }).catch(() => {});
     }
     const local = readJSON(PROFILE_KEY, {});
     this.state.user = {
