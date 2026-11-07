@@ -271,10 +271,13 @@ async function probeFirestore(config) {
   if (res.ok) return;
   const body = await res.json().catch(() => ({}));
   const msg = body?.error?.message || '';
-  if (res.status === 404 && !/does not exist|database/i.test(msg)) return; // settings doc not created yet — fine
+  // A missing *document* (settings not seeded yet) is fine; only a missing *database* is fatal.
+  // Note: "Document \"projects/.../databases/(default)/documents/...\" not found." contains the word
+  // "databases", so match the specific "database ... does not exist" wording only.
+  if (res.status === 404 && !/does not exist/i.test(msg)) return;
   let text = `Firestore error ${res.status}: ${msg}`;
   if (/has not been used|is disabled|SERVICE_DISABLED/i.test(msg)) text = 'Cloud Firestore belum diaktifkan. Firebase Console → Firestore Database → Create database.';
-  else if (res.status === 404) text = 'Pangkalan data Firestore (default) belum dicipta. Firebase Console → Firestore Database → Create database.';
+  else if (res.status === 404 && /does not exist/i.test(msg)) text = 'Pangkalan data Firestore (default) belum dicipta. Firebase Console → Firestore Database → Create database.';
   else if (res.status === 403) text = 'Firestore menolak akses — security rules app ini belum dipasang. Firebase Console → Firestore → Rules → tampal kandungan firestore.rules → Publish.';
   throw Object.assign(new Error(text), { code: `firestore/${res.status}` });
 }

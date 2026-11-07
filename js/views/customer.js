@@ -238,16 +238,17 @@ export const home = {
       ${sectionHead('Categories')}
       ${catPills(null, { all: false, link: true })}
 
+      ${!menu.length ? emptyState('👨‍🍳', 'Menu sedang disediakan', 'Kedai sedang mengemas kini menu. Sila cuba lagi sebentar lagi.', `<a class="btn btn-ghost" href="${contactShopLink()}" target="_blank" rel="noopener">${icon.whatsapp} Hubungi kedai</a>`) : ''}
       ${featured.length ? sectionHead('Featured Menu', '#/menu') + `<div class="h-scroll">${featured.map((m) => foodCard(m, { size: 'lg' })).join('')}</div>` : ''}
 
-      ${sectionHead('Recommended', '#/menu?sort=recommended')}
-      <div class="grid">${recommended.map((m) => foodCard(m)).join('')}</div>
+      ${recommended.length ? `${sectionHead('Recommended', '#/menu?sort=recommended')}
+      <div class="grid">${recommended.map((m) => foodCard(m)).join('')}</div>` : ''}
 
-      ${sectionHead('Popular Menu', '#/menu?sort=popular')}
-      <div class="h-scroll">${popular.map((m) => foodCard(m)).join('')}</div>
+      ${popular.length ? `${sectionHead('Popular Menu', '#/menu?sort=popular')}
+      <div class="h-scroll">${popular.map((m) => foodCard(m)).join('')}</div>` : ''}
 
-      ${sectionHead('Latest Menu', '#/menu?sort=latest')}
-      <div class="rows">${latest.map(rowCard).join('')}</div>
+      ${latest.length ? `${sectionHead('Latest Menu', '#/menu?sort=latest')}
+      <div class="rows">${latest.map(rowCard).join('')}</div>` : ''}
 
       ${inst.canInstall || inst.ios ? `<div class="install-card">
           <span class="install-ico">${icon.install}</span>
