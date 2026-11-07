@@ -4,7 +4,7 @@
  * - Stale-while-revalidate for static assets, fonts and CDN libraries
  * - Never caches Firebase / Firestore API traffic
  */
-const VERSION = 'png-v1.3.0';
+const VERSION = 'png-v1.4.0';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -31,6 +31,7 @@ const APP_SHELL = [
   './js/views/admin.js',
   './js/views/staff.js',
   './js/views/shared.js',
+  './js/views/drawer.js',
   './js/vendor/qrcode-generator.js',
   './js/vendor/jsQR.js',
   './js/vendor/firebase/firebase-app-compat.js',
