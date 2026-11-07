@@ -336,13 +336,23 @@ class FirebaseBackend {
     this.auth = fb.auth();
     this.db = fb.firestore();
     this.storage = fb.storage();
+
+    // Local development against the Firebase Emulator Suite:
+    //   localStorage.setItem('png_emulator', '1') on http://localhost, then reload.
+    //   Start emulators with: firebase emulators:start --only auth,firestore
+    this.emulator = ['localhost', '127.0.0.1'].includes(location.hostname) && localStorage.getItem('png_emulator') === '1';
+    if (this.emulator) {
+      this.auth.useEmulator('http://127.0.0.1:9099', { disableWarnings: true });
+      this.db.useEmulator('127.0.0.1', 8085);
+      this.storage.useEmulator('127.0.0.1', 9199);
+    }
     try {
       await this.db.enablePersistence({ synchronizeTabs: true });
     } catch { /* offline persistence unavailable — fine */ }
 
     // 1) Is Cloud Firestore ready? Quick REST probe of the public settings doc.
     //    Network failures are ignored (offline launch uses the Firestore cache).
-    await probeFirestore(this.config);
+    if (!this.emulator) await probeFirestore(this.config);
 
     // 2) Sign in (anonymous for customers) and load the profile
     await withTimeout(new Promise((resolve, reject) => {
@@ -469,11 +479,17 @@ class FirebaseBackend {
 
   async updateOrder(id, patch) {
     const ref = this.db.collection('orders').doc(id);
-    const before = this.state.orders.find((o) => o.id === id);
+    let before = this.state.orders.find((o) => o.id === id);
+    if (!before) {
+      // Not in the local snapshot yet (e.g. just created) — read it directly.
+      const snap = await ref.get().catch(() => null);
+      if (snap?.exists) before = { id, ...snap.data() };
+    }
     await ref.update({ ...patch, updatedAt: Date.now() });
     if (before && patch.status === 'Cancelled' && before.status !== 'Cancelled') {
       const countRef = this.db.collection('slotCounts').doc(before.pickupDate);
-      await countRef.set({ [before.pickupTime]: this.fb.firestore.FieldValue.increment(-1) }, { merge: true }).catch(() => {});
+      await countRef.set({ [before.pickupTime]: this.fb.firestore.FieldValue.increment(-1) }, { merge: true })
+        .catch((e) => console.warn('Could not release pickup slot', e.code || e.message));
     }
     return { ...before, ...patch };
   }
