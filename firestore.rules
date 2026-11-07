@@ -12,7 +12,7 @@ service cloud.firestore {
     // Add more Firebase Auth UIDs here to grant admin access (keep in sync with js/config.js OWNER_UIDS).
     function isOwner() {
       return signedIn() && request.auth.uid in [
-        'PkevnbnKlTMVT81wuHertzKKaL73'  // nafiqking (owner)
+        '2dt4f9ZlY2Ujd1CiIDmPDuLGMEt2'  // nafiqking (owner)
       ];
     }
 
