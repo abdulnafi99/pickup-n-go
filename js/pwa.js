@@ -38,13 +38,22 @@ export function initPWA() {
   setOnline();
 
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    // When a new service worker takes over an already-controlled page, reload once
+    // so every module comes from the new version (avoids mixing old + new code).
+    const hadController = !!navigator.serviceWorker.controller;
+    let reloading = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      location.reload();
+    });
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js').then((reg) => {
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
         reg.addEventListener('updatefound', () => {
           const sw = reg.installing;
           sw?.addEventListener('statechange', () => {
             if (sw.state === 'installed' && navigator.serviceWorker.controller) {
-              toast('New version available — refresh to update.', 'info', 5000);
+              toast('Mengemas kini app ke versi terbaru…', 'info', 3000);
             }
           });
         });

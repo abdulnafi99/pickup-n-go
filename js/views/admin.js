@@ -601,7 +601,7 @@ export const admin = {
       </aside>
       <main class="admin-main">
         <header class="admin-head">
-          <div><h1>${tab[1]}</h1><small>${fmtDate(todayStr())} • ${esc(Store.user.name || Store.user.email)}</small></div>
+          <div><h1>${tab[1]}</h1><small>${fmtDate(todayStr())} • ${esc(Store.user.name || Store.user.email)} • ${Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode (data hanya di peranti ini)</b>'}</small></div>
           <div class="admin-head-actions">
             ${permission() === 'default' ? '<button class="btn btn-ghost btn-sm" data-bell>🔔 Enable order alerts</button>' : permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : ''}
             ${pending ? `<a class="btn btn-accent btn-sm" href="#/admin/orders?s=Pending Confirmation">${pending} pending</a>` : ''}

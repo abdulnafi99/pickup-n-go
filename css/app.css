@@ -1006,6 +1006,10 @@ code { background: var(--soft); padding: 1px 6px; border-radius: 6px; font-size:
   .welcome-hero { height: 220px; }
 }
 
+/* Data mode indicator */
+.mode-on { color: var(--ok); }
+.mode-demo { color: var(--accent-dark); }
+
 /* ---------- Notifications ----------------------------------------------- */
 .notify-card p { font-size: 14px; color: #4d4943; margin-bottom: 12px; }
 .notify-card p.ok { color: var(--ok); font-weight: 600; }

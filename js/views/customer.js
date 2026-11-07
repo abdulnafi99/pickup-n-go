@@ -1229,7 +1229,7 @@ export const profile = {
           <p class="muted">Data is stored on this device (LocalStorage). Open <b>#/admin</b> or <b>#/staff</b> in another tab to see orders update live.</p>
           <button class="btn btn-ghost btn-block" data-reset>Reset demo data</button>
         </div>` : ''}
-      <p class="version">PICK UP N GO • v1.0 • ${Store.mode === 'demo' ? 'Demo mode' : 'Firebase'}</p>
+      <p class="version">PICK UP N GO • v1.3 • ${Store.mode === 'demo' ? '<b class="mode-demo">Demo mode</b>' : '<b class="mode-on">Firebase (live)</b>'}</p>
     </section>`;
   },
   mount(root, ctx) {

@@ -4,7 +4,7 @@
  * - Stale-while-revalidate for static assets, fonts and CDN libraries
  * - Never caches Firebase / Firestore API traffic
  */
-const VERSION = 'png-v1.2.0';
+const VERSION = 'png-v1.3.0';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -94,7 +94,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin assets + fonts + CDN: stale-while-revalidate.
+  // App code (our own JS/CSS/JSON, not vendor libraries): network-first so a new
+  // deploy is used immediately; fall back to the cache when offline or slow.
+  const isAppCode = url.origin === location.origin && !url.pathname.includes('/vendor/')
+    && /\.(js|css|json)$/.test(url.pathname);
+  if (isAppCode) {
+    event.respondWith((async () => {
+      const cache = await caches.open(SHELL);
+      try {
+        const res = await Promise.race([
+          fetch(req, { cache: 'no-cache' }),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('slow')), 4000)),
+        ]);
+        if (res && res.ok) cache.put(req, res.clone());
+        return res;
+      } catch {
+        return (await cache.match(req)) || (await caches.match(req)) || new Response('Offline', { status: 503 });
+      }
+    })());
+    return;
+  }
+
+  // Vendor libraries, icons, fonts, CDN: stale-while-revalidate.
   const cacheable =
     url.origin === location.origin ||
     /fonts\.(googleapis|gstatic)\.com/.test(url.host) ||
