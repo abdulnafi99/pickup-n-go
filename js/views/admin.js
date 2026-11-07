@@ -44,6 +44,11 @@ export function deniedHTML(next, role = 'admin') {
   return `<section class="page login">
     <div class="login-hero"><span class="logo-mark lg">${logoSVG()}</span><h2>Restricted Area</h2>
     <p>${role === 'admin' ? 'Admin' : 'Staff'} access required.</p></div>
+    ${Store.user && !Store.user.guest ? `<div class="card">
+      <p class="small">Log masuk sebagai <b>${esc(Store.user.email || '-')}</b> (${esc(Store.user.role)}) • ${Store.mode === 'firebase' ? '<b class="mode-on">Firebase</b>' : '<b class="mode-demo">Demo mode</b>'}</p>
+      <p class="small">UID anda: <code>${esc(Store.user.id)}</code></p>
+      ${Store.user.ownerRulesMissing ? '<div class="alert alert-warn" style="margin-top:10px">UID ini ada dalam senarai pemilik app, tetapi <b>rules yang dipublish di Firebase belum mengenalinya</b>. Semak fungsi <code>isOwner()</code> dalam Firestore → Rules mengandungi UID di atas, Publish, kemudian log masuk semula.</div>' : '<p class="small muted">Minta pemilik kedai tambah UID ini sebagai staff/admin.</p>'}
+    </div>` : ''}
     <a class="btn btn-primary btn-block btn-lg" href="#/login?next=${encodeURIComponent(next)}">Log in</a>
     <a class="btn btn-ghost btn-block" href="#/home">Back to shop</a>
   </section>`;

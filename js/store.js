@@ -383,16 +383,34 @@ class FirebaseBackend {
     const snap = await ref.get();
     let data = snap.exists ? snap.data() : null;
     const owner = !u.isAnonymous && OWNER_UIDS.includes(u.uid);
+    this.ownerRulesMissing = false;
     if (!data) {
-      data = { name: '', phone: '', email: u.email || '', role: owner ? 'admin' : 'customer', favourites: [], createdAt: Date.now() };
-      await ref.set(data);
+      data = { name: '', phone: '', email: u.email || '', role: 'customer', favourites: [], createdAt: Date.now() };
+      if (owner) {
+        // Only become admin if the published rules agree (server-verified).
+        try {
+          await ref.set({ ...data, role: 'admin' });
+          data.role = 'admin';
+        } catch (e) {
+          console.warn('Owner UID not recognised by the published firestore.rules', e.code);
+          this.ownerRulesMissing = true;
+          await ref.set(data);
+        }
+      } else {
+        await ref.set(data);
+      }
     } else if (owner && data.role !== 'admin') {
-      // Owner listed in the rules: keep the profile document in sync.
-      data.role = 'admin';
-      await ref.set({ role: 'admin' }, { merge: true }).catch(() => {});
+      try {
+        await ref.set({ role: 'admin' }, { merge: true });
+        data.role = 'admin';
+      } catch (e) {
+        console.warn('Owner UID not recognised by the published firestore.rules', e.code);
+        this.ownerRulesMissing = true;
+      }
     }
     const local = readJSON(PROFILE_KEY, {});
     this.state.user = {
+      ownerRulesMissing: this.ownerRulesMissing,
       id: u.uid,
       role: data.role || 'customer',
       name: data.name || local.name || '',

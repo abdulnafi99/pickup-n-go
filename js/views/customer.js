@@ -1303,7 +1303,8 @@ export const login = {
       busy(form.querySelector('button'), async () => {
         await Store.login(form.email.value, form.password.value);
         if (!Store.isStaff()) {
-          toast('This account has no staff access.', 'error');
+          toast(Store.user.ownerRulesMissing ? 'Rules Firebase belum mengenali akaun pemilik ini.' : 'Akaun ini tiada akses staff/admin.', 'error', 5000);
+          ctx.go('#/admin'); // shows the account's UID and what to fix
           return;
         }
         toast(`Welcome, ${Store.user.name || Store.user.email}`, 'success');
