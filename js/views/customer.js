@@ -205,6 +205,7 @@ export const home = {
 
     return `<section class="page home">
       <div class="brandbar">
+        <button class="icon-btn cd-btn" data-cdrawer-open aria-controls="customer-drawer" aria-expanded="false" aria-label="Buka menu">${icon.menu}</button>
         <span class="logo-mark">${logoSVG()}</span>
         <span class="brand-name">PICK UP <em>N</em> GO</span>
         <a href="#/profile" class="avatar" aria-label="Profile">${esc(initials(u.name))}</a>

@@ -1071,6 +1071,36 @@ body[data-chrome="admin"] #toasts, body[data-chrome="staff"] #toasts { top: auto
 body[data-chrome="admin"] .toast, body[data-chrome="staff"] .toast { transform: translateY(20px); }
 body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { transform: none; }
 
+/* ---------- Customer drawer -------------------------------------------- */
+.cdrawer .admin-side {
+  position: fixed; top: 0; bottom: 0; left: 0; height: auto; width: min(86vw, calc(310px + var(--safe-l)));
+  padding: calc(16px + var(--safe-t)) 14px calc(16px + var(--safe-b)) max(14px, var(--safe-l));
+  z-index: 130; transform: translateX(-105%); visibility: hidden; border-radius: 0 26px 26px 0;
+  transition: transform .3s var(--ease), visibility 0s linear .3s;
+}
+.cdrawer.drawer-open .admin-side { transform: none; visibility: visible; box-shadow: 20px 0 60px rgba(0, 0, 0, .35); transition: transform .3s var(--ease), visibility 0s; }
+.cdrawer .admin-scrim { display: block; position: fixed; inset: 0; z-index: 120; background: rgba(20, 20, 20, .5); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .3s; }
+.cdrawer.drawer-open .admin-scrim { opacity: 1; pointer-events: auto; }
+.cdrawer .drawer-close { display: grid; }
+.cdrawer .drawer-user { display: flex; color: #fff; }
+.cdrawer .drawer-user > svg { margin-left: auto; opacity: .5; }
+.cdrawer .drawer-user strong { font-size: 15px; }
+.drawer-order { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 6px; border-radius: 16px; background: rgba(244, 163, 64, .14); border: 1px solid rgba(244, 163, 64, .35); color: #fff; }
+.drawer-order > div { display: flex; flex-direction: column; min-width: 0; }
+.drawer-order small { font-size: 11px; opacity: .7; }
+.drawer-order strong { color: var(--accent); font-size: 14px; }
+.admin-nav.cats a { padding-top: 9px; padding-bottom: 9px; }
+.cat-emoji { width: 22px; text-align: center; font-size: 17px; }
+.admin-nav .wa-link svg { color: var(--wa); }
+.side-ok { font-style: normal; font-size: 11px; color: #7ee2a8; margin-left: 4px; }
+.side-version { margin: 8px 12px 0; font-size: 11px; color: rgba(255, 255, 255, .4); }
+.side-version .mode-on { color: #7ee2a8; }
+.side-version .mode-demo { color: #ffc77a; }
+.nav-pill button { display: flex; flex-direction: column; align-items: center; gap: 2px; color: rgba(255, 255, 255, .55); font-size: 10px; font-weight: 500; padding: 6px 0; }
+.nav-pill button svg { width: 22px; height: 22px; }
+.nav-pill button.on { color: #fff; }
+.brandbar .cd-btn { margin-right: 2px; }
+
 /* Data mode indicator */
 .mode-on { color: var(--ok); }
 .mode-demo { color: var(--accent-dark); }

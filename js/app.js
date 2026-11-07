@@ -10,6 +10,7 @@ import { startOrderWatcher, pushOrderStatus, refreshSubscription } from './push.
 import * as C from './views/customer.js';
 import { admin } from './views/admin.js';
 import { staff } from './views/staff.js';
+import { initCustomerDrawer, syncCustomerDrawer } from './views/customer-drawer.js';
 
 const routes = [
   [/^(home)?$/, C.home],
@@ -50,7 +51,7 @@ function navHTML(path) {
     <a href="#/menu" class="${active('menu')}" aria-label="Menu">${icon.grid}<span>Menu</span></a>
     <a href="#/cart" class="nav-cart ${active('cart')}" aria-label="Cart, ${count} items">${icon.bag}${count ? `<i class="cart-badge">${count > 99 ? '99+' : count}</i>` : ''}</a>
     <a href="#/orders" class="${active('orders')}" aria-label="My orders">${icon.receipt}<span>Orders</span></a>
-    <a href="#/profile" class="${active('profile')}" aria-label="Profile">${icon.user}<span>Profile</span></a>
+    <button type="button" class="${active('profile')}" data-cdrawer-open aria-controls="customer-drawer" aria-expanded="false" aria-label="Buka menu">${icon.menu}<span>Lagi</span></button>
   </div>`;
 }
 
@@ -60,6 +61,7 @@ function updateNav() {
   navEl.hidden = !show;
   document.body.dataset.chrome = current.view.chrome;
   if (show) navEl.innerHTML = navHTML(current.ctx.path);
+  syncCustomerDrawer(current.ctx.path, current.view.chrome);
 }
 
 /** Render the current route (fresh=true on navigation). */
@@ -126,6 +128,7 @@ function onDataChange(topic) {
 
 async function boot() {
   initPWA();
+  initCustomerDrawer();
   try {
     await Store.init();
   } catch (e) {
