@@ -1263,6 +1263,24 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .pl-edit { font-size: 11px; padding: 0; }
 .pos-lines .note { color: var(--accent-dark); }
 
+/* POS discount */
+.pos-disc { display: grid; gap: 8px; background: var(--card); border-radius: 16px; padding: 12px; }
+.pos-disc-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 700; font-size: 14px; }
+.seg.sm { margin: 0; padding: 3px; border-radius: 12px; }
+.seg.sm button { min-height: 34px; padding: 0 12px; font-size: 13px; border-radius: 9px; flex: 0 0 auto; }
+.pos-disc-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pos-disc-row .input { flex: 1; min-width: 100px; font-weight: 700; }
+.pos-disc-row .pos-quick { margin: 0; width: 100%; }
+.pos-disc-unit { font-weight: 700; color: var(--muted); }
+.pos-disc-msg { font-size: 12px; font-weight: 600; min-height: 0; }
+.pos-disc-msg:empty { display: none; }
+.pos-sum { display: grid; gap: 4px; padding: 0 4px; font-size: 14px; }
+.pos-sum > div { display: flex; justify-content: space-between; }
+.pos-sum .discount { color: var(--ok); font-weight: 600; }
+.pos-sum .pos-total { padding: 4px 0 0; }
+.fchip.on { background: var(--dark); color: #fff; border-color: var(--dark); }
+.pos-done .kv .ok span, .pos-done .kv .ok strong { color: var(--ok); }
+
 /* Category manager */
 .cat-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 .cat-row { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 14px; padding: 8px; box-shadow: var(--shadow); }

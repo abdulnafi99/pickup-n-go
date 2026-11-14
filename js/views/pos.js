@@ -23,7 +23,34 @@ const pos = {
   note: '',
   method: 'cash',
   cash: '',
+  discType: 'none', // 'none' | 'percent' | 'fixed' | 'code'
+  discValue: '',
+  discCode: '',
 };
+
+/** Discount for the current ticket: { amount, label, error }. Never more than the subtotal. */
+function discountInfo(subtotal) {
+  const none = { amount: 0, label: '', error: '' };
+  if (!subtotal || pos.discType === 'none') return none;
+  if (pos.discType === 'percent') {
+    const v = Math.min(100, Math.max(0, Number(pos.discValue) || 0));
+    if (!v) return none;
+    return { amount: +(subtotal * v / 100).toFixed(2), label: `${+v.toFixed(2)}%`, error: '' };
+  }
+  if (pos.discType === 'fixed') {
+    const v = Math.max(0, Number(pos.discValue) || 0);
+    if (!v) return none;
+    return { amount: +Math.min(v, subtotal).toFixed(2), label: money(Math.min(v, subtotal)), error: '' };
+  }
+  const code = pos.discCode.trim().toUpperCase();
+  if (!code) return none;
+  const promo = (Store.settings.promos || []).find((p) => p.active && String(p.code).toUpperCase() === code);
+  if (!promo) return { ...none, error: 'Kod promo tidak sah.' };
+  if (subtotal < (Number(promo.minSpend) || 0)) return { ...none, error: `Min. belanja ${money(promo.minSpend)} untuk ${promo.code}.` };
+  const amt = promo.type === 'percent' ? subtotal * Number(promo.value) / 100 : Number(promo.value);
+  return { amount: +Math.min(amt, subtotal).toFixed(2), label: promo.code, error: '' };
+}
+const payable = () => { const sub = ticketTotal(); return +(sub - discountInfo(sub).amount).toFixed(2); };
 
 const lineKey = (menuId, variant, note = '') => `${menuId}|${JSON.stringify(variant)}|${note.trim()}`;
 /** Item has at least one variation group with a real choice. */
@@ -111,7 +138,7 @@ function setQty(key, qty) {
 }
 
 function resetTicket() {
-  Object.assign(pos, { lines: [], name: '', phone: '', note: '', method: 'cash', cash: '' });
+  Object.assign(pos, { lines: [], name: '', phone: '', note: '', method: 'cash', cash: '', discType: 'none', discValue: '', discCode: '' });
 }
 
 // ---------------------------------------------------------------------------
@@ -150,9 +177,38 @@ export function posHTML() {
 }
 
 // ---------------------------------------------------------------------------
+function discountHTML(subtotal) {
+  const d = discountInfo(subtotal);
+  const t = pos.discType;
+  return `<div class="pos-disc">
+    <div class="pos-disc-head"><span>Diskaun</span>
+      <div class="seg sm">${[['none', 'Tiada'], ['percent', '%'], ['fixed', 'RM'], ['code', 'Kod']].map(([k, l]) => `<button type="button" class="${t === k ? 'on' : ''}" data-disc-type="${k}">${l}</button>`).join('')}</div>
+    </div>
+    ${t === 'percent' ? `<div class="pos-disc-row">
+        <input class="input sm" data-disc="discValue" value="${esc(pos.discValue)}" inputmode="decimal" placeholder="cth: 10" aria-label="Peratus diskaun"><span class="pos-disc-unit">%</span>
+        <div class="pos-quick">${[5, 10, 15, 20].map((v) => `<button type="button" class="fchip ${Number(pos.discValue) === v ? 'on' : ''}" data-disc-quick="${v}">${v}%</button>`).join('')}</div>
+      </div>` : ''}
+    ${t === 'fixed' ? `<div class="pos-disc-row"><span class="pos-disc-unit">RM</span><input class="input sm" data-disc="discValue" value="${esc(pos.discValue)}" inputmode="decimal" placeholder="cth: 5.00" aria-label="Jumlah diskaun"></div>` : ''}
+    ${t === 'code' ? `<div class="pos-disc-row">
+        <input class="input sm" data-disc="discCode" value="${esc(pos.discCode)}" placeholder="Kod promo, cth: PNG10" autocapitalize="characters" aria-label="Kod promo">
+        <button type="button" class="btn btn-dark btn-sm" data-disc-apply>Guna</button>
+      </div>` : ''}
+    <small class="pos-disc-msg ${d.error ? 'danger' : 'ok'}" data-disc-msg>${d.error ? esc(d.error) : d.amount ? `✓ Diskaun ${esc(d.label)} = −${money(d.amount)}` : ''}</small>
+  </div>`;
+}
+
+function sumHTML(subtotal) {
+  const d = discountInfo(subtotal);
+  return `<div class="pos-sum">
+    ${d.amount ? `<div><span>Subtotal</span><span>${money(subtotal)}</span></div><div class="discount"><span>Diskaun (${esc(d.label)})</span><span>−${money(d.amount)}</span></div>` : ''}
+    <div class="pos-total"><span>Jumlah</span><strong>${money(+(subtotal - d.amount).toFixed(2))}</strong></div>
+  </div>`;
+}
+
 function checkoutHTML() {
   const lines = ticketLines();
-  const total = ticketTotal();
+  const subtotal = ticketTotal();
+  const total = payable();
   const cashNum = Number(pos.cash) || 0;
   const change = +(cashNum - total).toFixed(2);
   const quick = [...new Set([Math.ceil(total), Math.ceil(total / 5) * 5, Math.ceil(total / 10) * 10, 50, 100].filter((v) => v >= total))].slice(0, 4);
@@ -168,7 +224,8 @@ function checkoutHTML() {
       <div class="stepper"><button data-dec aria-label="Kurang">${icon.minus}</button><output>${l.qty}</output><button data-inc aria-label="Tambah">${icon.plus}</button></div>
       <strong class="pl-total">${money(l.lineTotal)}</strong>
     </li>`).join('')}</ul>
-    <div class="pos-total"><span>Jumlah</span><strong>${money(total)}</strong></div>
+    ${discountHTML(subtotal)}
+    ${sumHTML(subtotal)}
 
     <details class="pos-cust" ${pos.name || pos.phone || pos.note ? 'open' : ''}>
       <summary>Pelanggan & nota <small>(pilihan)</small></summary>
@@ -192,7 +249,7 @@ function checkoutHTML() {
         </div>
       </div>` : `<div class="pos-qr">
         <div class="pos-qr-box">${s.duitnowQR ? `<img src="${esc(s.duitnowQR)}" alt="DuitNow QR">` : '<div data-pos-demo-qr></div>'}</div>
-        <p class="muted small center">Minta pelanggan scan &amp; bayar <b>${money(total)}</b>${s.duitnowQR ? '' : ' (QR demo — muat naik QR sebenar di Shop &amp; Payment)'}. Sahkan bayaran diterima sebelum tekan.</p>
+        <p class="muted small center">Minta pelanggan scan &amp; bayar <b class="pos-qr-amt">${money(total)}</b>${s.duitnowQR ? '' : ' (QR demo — muat naik QR sebenar di Shop &amp; Payment)'}. Sahkan bayaran diterima sebelum tekan.</p>
       </div>`}
 
     <div class="pos-actions">
@@ -207,7 +264,10 @@ async function charge(mode) {
   if (!lines.length) throw new Error('Tiket kosong.');
   const unavailable = lines.find((l) => !l.item.available);
   if (unavailable) throw new Error(`${unavailable.item.name} sudah sold out.`);
-  const total = ticketTotal();
+  const subtotal = ticketTotal();
+  const disc = discountInfo(subtotal);
+  if (disc.error) throw new Error(disc.error);
+  const total = +(subtotal - disc.amount).toFixed(2);
   const cashNum = Number(pos.cash) || 0;
   if (pos.method === 'cash' && pos.cash && cashNum < total) throw new Error('Tunai diterima kurang daripada jumlah.');
   const u = Store.user;
@@ -221,9 +281,10 @@ async function charge(mode) {
     customer: { uid: u.id, name: pos.name.trim() || 'Walk-in', phone: pos.phone.trim(), email: '' },
     items: lines.map((l) => ({ menuId: l.menuId, name: l.item.name, art: l.item.art || '', unitPrice: l.unitPrice, qty: l.qty, variant: l.variant, note: l.note || '' })),
     specialRequest: pos.note.trim(),
-    subtotal: total,
-    discount: 0,
-    promoCode: '',
+    subtotal,
+    discount: disc.amount,
+    promoCode: disc.amount ? disc.label : '',
+    discountType: disc.amount ? pos.discType : '',
     total,
     pickupDate: todayStr(),
     pickupTime: now.toTimeString().slice(0, 5),
@@ -242,7 +303,7 @@ async function charge(mode) {
     ...(pos.method === 'cash' ? { cashReceived: pos.cash ? cashNum : total, change: pos.cash ? +(cashNum - total).toFixed(2) : 0 } : {}),
   };
   await Store.updateOrder(id, { status: mode === 'done' ? 'Completed' : 'Preparing', payment: paid });
-  return { id, total, change: paid.change || 0, method: pos.method, mode };
+  return { id, total, subtotal, discount: disc.amount, discountLabel: disc.label, change: paid.change || 0, method: pos.method, mode };
 }
 
 function openCheckout(refresh) {
@@ -251,16 +312,44 @@ function openCheckout(refresh) {
     if (!pos.lines.length) { md.close(); refresh(); return; }
     md.el.innerHTML = checkoutHTML();
     const demo = md.el.querySelector('[data-pos-demo-qr]');
-    if (demo) renderQR(demo, `DUITNOW-DEMO|PICK UP N GO|${ticketTotal().toFixed(2)}`, 180);
+    if (demo) renderQR(demo, `DUITNOW-DEMO|PICK UP N GO|${payable().toFixed(2)}`, 180);
   };
   draw();
+  const updateSums = () => {
+    const sub = ticketTotal();
+    const d = discountInfo(sub);
+    const sum = md.el.querySelector('.pos-sum');
+    if (sum) sum.outerHTML = sumHTML(sub);
+    const msg = md.el.querySelector('[data-disc-msg]');
+    if (msg) {
+      msg.className = `pos-disc-msg ${d.error ? 'danger' : 'ok'}`;
+      msg.textContent = d.error || (d.amount ? `✓ Diskaun ${d.label} = −${money(d.amount)}` : '');
+    }
+    const total = payable();
+    const box = md.el.querySelector('.pos-change');
+    if (box) {
+      const change = +((Number(pos.cash) || 0) - total).toFixed(2);
+      box.classList.toggle('short', !!pos.cash && change < 0);
+      box.innerHTML = `<span>${pos.cash && change < 0 ? 'Tidak cukup' : 'Baki'}</span><strong>${pos.cash ? money(Math.abs(change)) : '—'}</strong>`;
+    }
+    const cashIn = md.el.querySelector('.pos-cash-in');
+    if (cashIn) cashIn.placeholder = total.toFixed(2);
+    const amt = md.el.querySelector('.pos-qr-amt');
+    if (amt) amt.textContent = money(total);
+  };
   md.el.addEventListener('input', (e) => {
+    const df = e.target.dataset.disc;
+    if (df) {
+      pos[df] = df === 'discValue' ? e.target.value.replace(/[^0-9.]/g, '') : e.target.value;
+      if (df === 'discValue') updateSums(); // promo code applies on "Guna"
+      return;
+    }
     const f = e.target.dataset.pf;
     if (!f) return;
     pos[f] = f === 'cash' ? e.target.value.replace(/[^0-9.]/g, '') : e.target.value;
     if (f === 'cash') {
       // update only the change line to keep the keyboard open
-      const total = ticketTotal();
+      const total = payable();
       const change = +((Number(pos.cash) || 0) - total).toFixed(2);
       const box = md.el.querySelector('.pos-change');
       if (box) {
@@ -280,6 +369,17 @@ function openCheckout(refresh) {
     if (li && e.target.closest('[data-dec]')) { const l = pos.lines.find((x) => x.key === li.dataset.key); setQty(li.dataset.key, l.qty - 1); draw(); refresh(); return; }
     const m = e.target.closest('[data-method]');
     if (m) { pos.method = m.dataset.method; draw(); return; }
+    const dt = e.target.closest('[data-disc-type]');
+    if (dt) { pos.discType = dt.dataset.discType; pos.discValue = ''; pos.discCode = ''; draw(); return; }
+    const dq = e.target.closest('[data-disc-quick]');
+    if (dq) { pos.discValue = dq.dataset.discQuick; draw(); return; }
+    if (e.target.closest('[data-disc-apply]')) {
+      const d = discountInfo(ticketTotal());
+      if (d.error) toast(d.error, 'error');
+      else if (d.amount) toast(`Kod ${d.label} digunakan`, 'success');
+      draw();
+      return;
+    }
     const c = e.target.closest('[data-cash]');
     if (c) { pos.cash = String(c.dataset.cash); draw(); return; }
     const pay = e.target.closest('[data-pos-pay]');
@@ -301,6 +401,7 @@ function showDone(r) {
       <h2>Jualan berjaya</h2>
       <p class="oid">${esc(r.id)}</p>
       <div class="kv">
+        ${r.discount ? `<div><span>Subtotal</span><strong>${money(r.subtotal)}</strong></div><div class="ok"><span>Diskaun (${esc(r.discountLabel)})</span><strong>−${money(r.discount)}</strong></div>` : ''}
         <div><span>Jumlah</span><strong>${money(r.total)}</strong></div>
         <div><span>Bayaran</span><strong>${r.method === 'cash' ? 'Tunai' : 'DuitNow QR'}</strong></div>
         ${r.method === 'cash' ? `<div class="pos-change-row"><span>Baki kepada pelanggan</span><strong>${money(r.change)}</strong></div>` : ''}
