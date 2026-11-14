@@ -1196,7 +1196,6 @@ export const profile = {
           <h3>Staff Area</h3>
           ${Store.isAdmin() ? `<a class="menu-link" href="#/admin">${icon.chart} Admin Dashboard ${icon.chevronRight}</a>` : ''}
           <a class="menu-link" href="#/staff">${icon.scan} Staff Pickup Counter ${icon.chevronRight}</a>
-          <button class="menu-link" data-logout>${icon.logout} Log out (${esc(u.email)})</button>
         </div>` : ''}
 
       <form class="card form" data-profile>
@@ -1225,6 +1224,13 @@ export const profile = {
         ${!Store.isStaff() ? `<a class="menu-link" href="#/login">${icon.store} Staff / Admin Login ${icon.chevronRight}</a>` : ''}
       </div>
 
+      <div class="card logout-card">
+        <button class="btn btn-logout btn-block btn-lg" data-logout>${icon.logout} Log Keluar</button>
+        <p class="muted small center">${Store.isStaff()
+          ? `Keluar dari akaun ${esc(u.role)} (${esc(u.email)}).`
+          : 'Padam profil, favourite, troli dan senarai pesanan di peranti ini.'}</p>
+      </div>
+
       ${Store.mode === 'demo' ? `<div class="card demo-card">
           <h3>Demo Mode</h3>
           ${Store.initError ? `<div class="alert alert-warn"><b>Firebase belum aktif:</b> ${esc(Store.initError.message)}</div>` : ''}
@@ -1249,10 +1255,25 @@ export const profile = {
       });
     });
     $('[data-install]', root)?.addEventListener('click', promptInstall);
-    $('[data-logout]', root)?.addEventListener('click', async () => {
-      await Store.logout();
-      toast('Logged out');
-      ctx.refresh();
+    $('[data-logout]', root)?.addEventListener('click', async (e) => {
+      const btn = e.currentTarget;
+      if (Store.isStaff()) {
+        if (!(await confirmDialog(`Log keluar dari ${Store.user.email}?`, { title: 'Log Keluar', ok: 'Log Keluar', danger: true }))) return;
+        return busy(btn, async () => { await Store.logout(); toast('Anda telah log keluar'); ctx.go('#/home'); });
+      }
+      const ok = await confirmDialog(
+        'Nama, telefon, favourite, troli dan senarai pesanan anda akan dipadam dari peranti ini. Pesanan yang sudah dibuat tetap diproses oleh kedai.',
+        { title: 'Log Keluar?', ok: 'Log Keluar', danger: true }
+      );
+      if (!ok) return;
+      busy(btn, async () => {
+        if (permission() === 'granted') await disableNotifications().catch(() => {});
+        await Store.logoutCustomer();
+        Cart.reload();
+        window.dispatchEvent(new CustomEvent('cart:change'));
+        toast('Anda telah log keluar', 'success');
+        ctx.go('#/home');
+      });
     });
     $('[data-reset]', root)?.addEventListener('click', async () => {
       if (!(await confirmDialog('Reset all demo menu, orders and settings on this device?', { ok: 'Reset', danger: true }))) return;

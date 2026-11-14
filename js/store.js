@@ -606,6 +606,19 @@ export const Store = {
 
   async login(email, password) { await this.backend.login(email, password); emit('auth'); },
   async logout() { await this.backend.logout(); emit('auth'); },
+
+  /**
+   * Customer log out: forget this device's customer identity and data
+   * (profile, favourites, cart, list of my orders, push subscription) and start
+   * a fresh guest session. Orders already placed stay with the shop.
+   */
+  async logoutCustomer() {
+    ['png_profile', 'png_guest_id', 'png_my_orders', 'png_push_sub', 'png_cart', 'png_promo', 'png_special']
+      .forEach((k) => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
+    try { sessionStorage.removeItem('png_checkout'); } catch { /* ignore */ }
+    await this.backend.logout();
+    emit('auth');
+  },
   async saveProfile(patch) { await this.backend.saveProfile(patch); emit('profile'); },
 
   async toggleFavourite(menuId) {

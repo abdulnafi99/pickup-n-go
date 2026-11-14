@@ -1172,6 +1172,12 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
   }
 }
 
+/* Profile log out */
+.logout-card { display: grid; gap: 10px; }
+.btn-logout { background: #fff; color: var(--danger); border: 2px solid #f3c9c4; }
+.btn-logout:hover { background: #fdf0ee; border-color: var(--danger); }
+.btn-logout svg { width: 20px; height: 20px; }
+
 /* Data mode indicator */
 .mode-on { color: var(--ok); }
 .mode-demo { color: var(--accent-dark); }
