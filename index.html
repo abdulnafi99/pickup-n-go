@@ -6,12 +6,14 @@
   <title>PICK UP N GO — Smart Food Pre-Order & Pickup</title>
   <meta name="description" content="Pre-order your favourite food, choose your pickup date and time, and skip the queue. PICK UP N GO.">
   <meta name="theme-color" content="#244B38">
+  <link rel="preload" as="image" href="icons/logo-256.png">
   <meta name="color-scheme" content="light">
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="icons/favicon-48.png">
   <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
-  <link rel="icon" type="image/svg+xml" href="icons/icon.svg">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -28,9 +30,7 @@
 <body>
   <!-- Boot splash (removed once the data layer is ready) -->
   <div id="boot" aria-live="polite">
-    <div class="boot-logo">
-      <svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="14" fill="#244B38"/><path d="M14 18h20l-1.6 17.5a2 2 0 0 1-2 1.8H17.6a2 2 0 0 1-2-1.8L14 18Z" fill="#F4A340"/><path d="M19 18v-2.5a5 5 0 0 1 10 0V18" stroke="#FFF9F0" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="m20 27 3 3 6-6" stroke="#244B38" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </div>
+    <div class="boot-logo"><img src="icons/logo-256.png" alt="PICK UP N GO" width="256" height="256"></div>
     <h1>PICK UP <em>N</em> GO</h1>
     <p>Preparing your menu…</p>
     <span class="boot-bar"><i></i></span>

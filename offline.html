@@ -11,7 +11,7 @@
     body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--text);
       font-family: Poppins, system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 24px; text-align: center; }
     .card { max-width: 360px; }
-    .logo { width: 84px; height: 84px; margin: 0 auto 18px; }
+    .logo { display: block; width: 96px; height: 96px; margin: 0 auto 18px; border-radius: 24px; box-shadow: 0 10px 24px rgba(0,0,0,.15); }
     h1 { font-size: 26px; margin: 0 0 8px; }
     p { color: #6f6a61; line-height: 1.6; margin: 0 0 22px; }
     button { border: 0; background: var(--primary); color: #fff; font: 600 16px/1 inherit; padding: 16px 28px; border-radius: 999px; cursor: pointer; }
@@ -21,7 +21,7 @@
 </head>
 <body>
   <div class="card">
-    <svg class="logo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="14" fill="#244B38"/><path d="M14 18h20l-1.6 17.5a2 2 0 0 1-2 1.8H17.6a2 2 0 0 1-2-1.8L14 18Z" fill="#F4A340"/><path d="M19 18v-2.5a5 5 0 0 1 10 0V18" stroke="#FFF9F0" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="m20 27 3 3 6-6" stroke="#244B38" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <img class="logo" src="icons/logo-256.png" alt="PICK UP N GO">
     <div class="plate"></div>
     <h1>You're offline</h1>
     <p>PICK UP N GO can't reach the internet right now. Check your connection and try again — your cart is saved on this device.</p>

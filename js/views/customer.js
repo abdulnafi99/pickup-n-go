@@ -182,8 +182,9 @@ export const welcome = {
   },
 };
 
+/** Brand logo used across the app (welcome, home, drawers, login, admin, staff). */
 export function logoSVG() {
-  return `<svg viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="14" fill="#244B38"/><path d="M14 18h20l-1.6 17.5a2 2 0 0 1-2 1.8H17.6a2 2 0 0 1-2-1.8L14 18Z" fill="#F4A340"/><path d="M19 18v-2.5a5 5 0 0 1 10 0V18" stroke="#FFF9F0" stroke-width="2.6" fill="none" stroke-linecap="round"/><path d="m20 27 3 3 6-6" stroke="#244B38" stroke-width="2.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  return `<img src="icons/logo-256.png" alt="" width="256" height="256" decoding="async">`;
 }
 
 // ---------------------------------------------------------------------------
