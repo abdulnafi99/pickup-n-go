@@ -14,12 +14,14 @@ import { logoSVG } from './customer.js';
 import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
 import { posReportHTML, exportPosCSV, printPosReport } from './pos-report.js';
+import { monthlyReportHTML, exportMonthCSV, printMonthReport, thisMonth, shiftMonth } from './monthly-report.js';
 
 const TABS = [
   ['dashboard', 'Dashboard', icon.chart, 'Operasi'],
   ['orders', 'Orders', icon.receipt, 'Operasi'],
   ['schedule', 'Pickup Schedule', icon.calendar, 'Operasi'],
   ['pos-report', 'Laporan POS', icon.chart, 'Operasi'],
+  ['monthly-report', 'Laporan Bulanan', icon.calendar, 'Operasi'],
   ['menu', 'Menu', icon.grid, 'Kedai'],
   ['pickup', 'Pickup Settings', icon.clock, 'Kedai'],
   ['settings', 'Shop & Payment', icon.settings, 'Kedai'],
@@ -32,6 +34,8 @@ const st = {
   orderQ: '',
   schedDate: todayStr(),
   repDate: todayStr(),
+  mYm: thisMonth(),
+  mSrc: 'all',
   menuQ: '',
   menuCat: '',
   custQ: '',
@@ -686,7 +690,7 @@ export const admin = {
   render(ctx) {
     if (!Store.isAdmin()) return deniedHTML('#/admin', 'admin');
     const tab = TABS.find((t) => t[0] === currentTab) || TABS[0];
-    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), menu: menuTab, pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
+    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), 'monthly-report': () => monthlyReportHTML(st.mYm, st.mSrc), menu: menuTab, pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
     const pending = Store.orders.filter((o) => o.status === 'Pending Confirmation').length;
     void ctx;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
@@ -767,6 +771,18 @@ export const admin = {
       if (rg) { st.repDate = rg.dataset.rgo; return rerender(); }
       if (t.closest('[data-rep-print]')) return printPosReport(st.repDate);
       if (t.closest('[data-rep-csv]')) return exportPosCSV(st.repDate);
+      const md = t.closest('[data-mday]');
+      if (md) { const n = Number(md.dataset.mday); st.mYm = n === 0 ? thisMonth() : shiftMonth(st.mYm, n); if (st.mYm > thisMonth()) st.mYm = thisMonth(); return rerender(); }
+      const ms = t.closest('[data-msrc]');
+      if (ms) { st.mSrc = ms.dataset.msrc; return rerender(); }
+      const mg = t.closest('[data-mgo]');
+      if (mg) {
+        if (st.mSrc === 'pos') { st.repDate = mg.dataset.mgo; return ctx.go('#/admin/pos-report'); }
+        st.orderDate = mg.dataset.mgo; st.orderStatus = 'all'; st.orderQ = '';
+        return ctx.go('#/admin/orders');
+      }
+      if (t.closest('[data-mrep-print]')) return printMonthReport(st.mYm, st.mSrc);
+      if (t.closest('[data-mrep-csv]')) return exportMonthCSV(st.mYm, st.mSrc);
       const cust = t.closest('[data-cust]');
       if (cust && !t.closest('a')) return openCustomer(cust.dataset.cust);
 
@@ -867,6 +883,7 @@ export const admin = {
     root.addEventListener('change', async (e) => {
       const t = e.target;
       if (t.matches('[data-odate]')) { st.orderDate = t.value; rerender(); }
+      if (t.matches('[data-mmonth]')) { st.mYm = t.value && t.value <= thisMonth() ? t.value : thisMonth(); rerender(); }
       if (t.matches('[data-rdate]')) { st.repDate = t.value && t.value <= todayStr() ? t.value : todayStr(); rerender(); }
       if (t.matches('[data-sdate]')) { st.schedDate = t.value || todayStr(); rerender(); }
       if (t.matches('[data-mcat]')) { st.menuCat = t.value; rerender(); }
