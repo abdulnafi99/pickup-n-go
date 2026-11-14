@@ -1,0 +1,5 @@
+# Not part of the website — keep Firebase config/rules off the public site
+firestore.rules
+storage.rules
+firebase.json
+*-debug.log
