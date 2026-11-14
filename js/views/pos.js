@@ -25,7 +25,9 @@ const pos = {
   cash: '',
 };
 
-const lineKey = (menuId, variant) => `${menuId}|${JSON.stringify(variant)}`;
+const lineKey = (menuId, variant, note = '') => `${menuId}|${JSON.stringify(variant)}|${note.trim()}`;
+/** Item has at least one variation group with a real choice. */
+const hasChoices = (m) => (m.variants || []).some((g) => (g.options || []).length > 1);
 
 function ticketLines() {
   return pos.lines
@@ -40,16 +42,65 @@ function ticketLines() {
 const ticketTotal = () => +ticketLines().reduce((s, l) => s + l.lineTotal, 0).toFixed(2);
 const ticketCount = () => pos.lines.reduce((s, l) => s + l.qty, 0);
 
-function addItem(id) {
+function addItem(id, variant, qty = 1, note = '') {
   const m = Store.menuItem(id);
   if (!m) return;
   if (!m.available) return toast(`${m.name} sold out`, 'error');
-  const variant = defaultVariant(m);
-  const key = lineKey(id, variant);
+  const v = variant || defaultVariant(m);
+  const key = lineKey(id, v, note);
   const ex = pos.lines.find((l) => l.key === key);
-  if (ex) ex.qty = Math.min(99, ex.qty + 1);
-  else pos.lines.push({ key, menuId: id, qty: 1, variant, note: '' });
+  if (ex) ex.qty = Math.min(99, ex.qty + qty);
+  else pos.lines.push({ key, menuId: id, qty: Math.min(99, qty), variant: v, note: note.trim() });
   if (navigator.vibrate) navigator.vibrate(15);
+}
+
+/**
+ * Variation picker for items with choices (portion, spice, hot/iced, add-ons…).
+ * `editKey` re-opens it for an existing ticket line so its variation can be changed.
+ */
+function openVariantPicker(id, onDone, editKey = null) {
+  const m = Store.menuItem(id);
+  if (!m) return;
+  const editing = editKey ? pos.lines.find((l) => l.key === editKey) : null;
+  const sel = { ...defaultVariant(m), ...(editing?.variant || {}) };
+  let qty = editing?.qty || 1;
+  let note = editing?.note || '';
+  const md = modal('', { title: editing ? 'Ubah pilihan' : 'Pilih variasi' });
+  const draw = () => {
+    const price = unitPrice(m, sel);
+    md.el.innerHTML = `<div class="pos-variant">
+      <div class="pv-head"><span class="pv-art">${itemVisual(m)}</span><div><strong>${esc(m.name)}</strong><small class="muted">Harga asas ${money(m.price)}</small></div></div>
+      ${(m.variants || []).map((g, gi) => `<div class="pv-group">
+        <p class="pv-label">${esc(g.name)}</p>
+        <div class="pv-opts">${g.options.map((o, oi) => `<button type="button" class="pv-opt ${sel[g.name] === o.label ? 'on' : ''}" data-g="${gi}" data-o="${oi}" aria-pressed="${sel[g.name] === o.label}">
+          <span>${esc(o.label)}</span>${Number(o.price) ? `<small>${o.price > 0 ? '+' : '−'}${money(Math.abs(o.price))}</small>` : ''}
+        </button>`).join('')}</div>
+      </div>`).join('')}
+      <input class="input sm pv-note" data-pv-note value="${esc(note)}" maxlength="80" placeholder="Nota item (pilihan), cth: tanpa bawang">
+      <div class="pv-foot">
+        <div class="stepper big-ish"><button type="button" data-pv-dec aria-label="Kurang">${icon.minus}</button><output>${qty}</output><button type="button" data-pv-inc aria-label="Tambah">${icon.plus}</button></div>
+        <button type="button" class="btn btn-primary btn-lg pv-add" data-pv-add>${editing ? 'Simpan' : 'Tambah'} • ${money(price * qty)}</button>
+      </div>
+    </div>`;
+  };
+  draw();
+  md.el.addEventListener('input', (e) => { if (e.target.matches('[data-pv-note]')) note = e.target.value; });
+  md.el.addEventListener('click', (e) => {
+    const opt = e.target.closest('[data-g]');
+    if (opt) {
+      const g = m.variants[Number(opt.dataset.g)];
+      sel[g.name] = g.options[Number(opt.dataset.o)].label;
+      return draw();
+    }
+    if (e.target.closest('[data-pv-inc]')) { qty = Math.min(99, qty + 1); return draw(); }
+    if (e.target.closest('[data-pv-dec]')) { qty = Math.max(1, qty - 1); return draw(); }
+    if (e.target.closest('[data-pv-add]')) {
+      if (editing) pos.lines = pos.lines.filter((l) => l.key !== editKey);
+      addItem(id, { ...sel }, qty, note);
+      md.close();
+      onDone?.();
+    }
+  });
 }
 
 function setQty(key, qty) {
@@ -87,6 +138,7 @@ export function posHTML() {
         <span class="pos-art">${itemVisual(m)}</span>
         <span class="pos-name">${esc(m.name)}</span>
         <span class="pos-price">${m.available ? money(m.price) : 'Sold out'}</span>
+        ${m.available && hasChoices(m) ? '<span class="pos-var-hint">Pilih variasi</span>' : ''}
       </button>`;
     }).join('')}</div>` : `<div class="empty"><div class="empty-emoji">🔍</div><h3>Tiada menu</h3><p>Cuba carian atau kategori lain.</p></div>`}
   </section>
@@ -107,7 +159,12 @@ function checkoutHTML() {
   const s = Store.settings;
   return `<div class="pos-checkout">
     <ul class="pos-lines">${lines.map((l) => `<li data-key="${esc(l.key)}">
-      <div class="pl-main"><strong>${esc(l.item.name)}</strong>${variantText(l.variant) ? `<small>${esc(variantText(l.variant))}</small>` : ''}<small class="muted">${money(l.unitPrice)}</small></div>
+      <div class="pl-main">
+        <strong>${esc(l.item.name)}</strong>
+        ${variantText(l.variant) ? `<small>${esc(variantText(l.variant))}</small>` : ''}
+        ${l.note ? `<small class="note">📝 ${esc(l.note)}</small>` : ''}
+        <small class="muted">${money(l.unitPrice)}${hasChoices(l.item) ? ` • <button type="button" class="link-btn pl-edit" data-edit-line>Ubah</button>` : ''}</small>
+      </div>
       <div class="stepper"><button data-dec aria-label="Kurang">${icon.minus}</button><output>${l.qty}</output><button data-inc aria-label="Tambah">${icon.plus}</button></div>
       <strong class="pl-total">${money(l.lineTotal)}</strong>
     </li>`).join('')}</ul>
@@ -214,6 +271,11 @@ function openCheckout(refresh) {
   });
   md.el.addEventListener('click', (e) => {
     const li = e.target.closest('[data-key]');
+    if (li && e.target.closest('[data-edit-line]')) {
+      const l = pos.lines.find((x) => x.key === li.dataset.key);
+      if (l) openVariantPicker(l.menuId, () => { draw(); refresh(); }, l.key);
+      return;
+    }
     if (li && e.target.closest('[data-inc]')) { const l = pos.lines.find((x) => x.key === li.dataset.key); setQty(li.dataset.key, l.qty + 1); draw(); refresh(); return; }
     if (li && e.target.closest('[data-dec]')) { const l = pos.lines.find((x) => x.key === li.dataset.key); setQty(li.dataset.key, l.qty - 1); draw(); refresh(); return; }
     const m = e.target.closest('[data-method]');
@@ -262,6 +324,8 @@ export function bindPOS(root, ctx) {
   root.addEventListener('click', async (e) => {
     const add = e.target.closest('[data-pos-add]');
     if (add) {
+      const m = Store.menuItem(add.dataset.posAdd);
+      if (m && m.available && hasChoices(m)) return openVariantPicker(m.id, () => ctx.refresh());
       addItem(add.dataset.posAdd);
       add.classList.add('pop');
       return ctx.refresh();

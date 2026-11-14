@@ -1242,6 +1242,27 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .pos-done .kv { text-align: left; background: var(--card); border-radius: 16px; padding: 14px; }
 .pos-change-row strong { font-size: 22px; color: var(--primary); }
 
+/* POS variation picker */
+.pos-var-hint { font-size: 10.5px; font-weight: 600; color: var(--accent-dark); background: #fff1dc; padding: 2px 8px; border-radius: 99px; }
+.pos-variant { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
+.pv-head { display: flex; align-items: center; gap: 12px; }
+.pv-head > div { display: flex; flex-direction: column; min-width: 0; }
+.pv-head strong { font-size: 17px; }
+.pv-art { width: 72px; flex-shrink: 0; }
+.pv-art .food-photo { width: 60px; border-width: 3px; }
+.pv-label { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.pv-opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.pv-opt { display: flex; flex-direction: column; align-items: flex-start; min-height: 46px; padding: 8px 14px; border-radius: 14px; border: 2px solid var(--line); background: var(--card); font-weight: 600; font-size: 14px; transition: all .15s; }
+.pv-opt small { font-size: 11px; color: var(--muted); font-weight: 500; }
+.pv-opt.on { border-color: var(--primary); background: #eaf3ee; color: var(--primary); }
+.pv-opt.on small { color: var(--primary); }
+.pv-foot { display: flex; align-items: center; gap: 12px; }
+.pv-foot .pv-add { flex: 1; }
+.stepper.big-ish button { width: 40px; height: 40px; }
+.stepper.big-ish output { min-width: 34px; font-size: 18px; }
+.pl-edit { font-size: 11px; padding: 0; }
+.pos-lines .note { color: var(--accent-dark); }
+
 /* Category manager */
 .cat-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
 .cat-row { display: flex; align-items: center; gap: 8px; background: var(--card); border-radius: 14px; padding: 8px; box-shadow: var(--shadow); }

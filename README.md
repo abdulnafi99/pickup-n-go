@@ -60,6 +60,7 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 
 **POS Kaunter (Staff → POS Walk-in)**
 - Jualan walk-in: pilih menu (carian + kategori), ubah kuantiti, nama/telefon/nota pilihan.
+- Menu dengan variasi (cth. Portion, Spice Level, Panas/Sejuk, Add-on) membuka pemilih variasi: pilih pilihan (harga dikemas kini termasuk tambahan/potongan), kuantiti dan nota item. Variasi berbeza = baris tiket berasingan; butang *Ubah* di skrin bayaran untuk menukar variasi sesuatu baris.
 - Bayaran tunai (kiraan baki + butang nilai pantas) atau DuitNow QR.
 - *Bayar & Selesai* (terus Completed) atau *Bayar & Sediakan* (masuk senarai To Do dapur), dengan resit boleh dicetak.
 - Disimpan sebagai pesanan biasa (`source: 'pos'`, `orderType: 'walk-in'`) jadi masuk jualan dashboard, tetapi **tidak mengambil slot pickup** pelanggan pra-tempah.
