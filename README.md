@@ -58,6 +58,24 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - `manifest.json` (ikon, maskable, shortcuts), `sw.js` (precache app shell, stale-while-revalidate, network-first navigation), `offline.html` fallback, banner offline, butang install (Android/desktop) + arahan iPhone.
 - Penjana & pengimbas QR dibundel dalam `js/vendor/` supaya berfungsi offline.
 
+## Firestore database kedua: TAPJERR.io
+
+Projek Firebase `pickup-n-go` ada **dua** database Cloud Firestore:
+
+| Database | App | Rules |
+|---|---|---|
+| `(default)` | PICK UP N GO (app ini) | `firestore.rules` |
+| `tapjerr` | TAPJERR.io | `firestore.tapjerr.rules` |
+
+Kedua-duanya guna nama koleksi yang sama (`menu`, `settings`, `orders`, `users`), jadi ia **mesti** berada dalam database berasingan.
+
+Sediakan:
+1. Firebase Console → **Firestore Database** → menu database (atas) → **Create database** → Database ID: `tapjerr` → lokasi sama seperti `(default)` → Production mode.
+2. Pilih database `tapjerr` → tab **Rules** → tampal isi `firestore.tapjerr.rules` → **Publish**. (Atau `firebase deploy --only firestore` — `firebase.json` memetakan setiap database kepada rules masing-masing.)
+3. Dalam app TAPJERR, sambung ke database bernama: `getFirestore(app, 'tapjerr')` (SDK modular).
+
+Nota emulator: format berbilang database dalam `firebase.json` belum dibaca oleh Firestore emulator; untuk ujian tempatan jalankan emulator dengan satu fail rules pada satu masa.
+
 ## Realtime Database rules (Selagi Coffee loyalty)
 
 `database.rules.json` ialah security rules **Firebase Realtime Database** untuk sistem loyalti Selagi Coffee (customers, reviews, promotions, redeemItems, infoTerkini, broadcasts, password reset, push tokens) dalam projek Firebase yang sama. Ia **berasingan** daripada `firestore.rules` (app PICK UP N GO guna Cloud Firestore) dan tidak menjejaskan satu sama lain.
