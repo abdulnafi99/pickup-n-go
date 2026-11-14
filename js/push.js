@@ -230,6 +230,7 @@ function snapshotMine() {
   const u = Store.user;
   const map = new Map();
   Store.orders.forEach((o) => {
+    if (o.source === 'pos') return; // counter sales rung up by staff are not the staff's own orders
     if (ids.has(o.id) || o.customer?.uid === u?.id) map.set(o.id, o.status);
   });
   return map;
@@ -260,7 +261,7 @@ export function startOrderWatcher() {
     // Staff/admin: brand-new orders
     if (Store.isStaff()) {
       Store.orders.forEach((o) => {
-        if (!knownAll.has(o.id) && o.status === 'Pending Confirmation' && !myOrderIds().includes(o.id)) {
+        if (!knownAll.has(o.id) && o.status === 'Pending Confirmation' && o.source !== 'pos' && !myOrderIds().includes(o.id)) {
           const title = 'Pesanan baru! 🛍️';
           const body = `${o.customer.name} • ${money(o.total)}\nPickup ${fmtDate(o.pickupDate, false)} ${fmtTime(o.pickupTime)} • ${o.id}`;
           if (document.visibilityState === 'visible') toast(`Pesanan baru: ${o.id}`, 'success', 5000);

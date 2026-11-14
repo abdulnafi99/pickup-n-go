@@ -12,8 +12,9 @@ import { openOrderModal, nextStatusBtn, deniedHTML } from './admin.js';
 import { logoSVG } from './customer.js';
 import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
+import { posHTML, bindPOS, posTicketCount } from './pos.js';
 
-const st = { q: '', filter: 'todo' };
+const st = { q: '', filter: 'todo', mode: 'orders' }; // mode: 'orders' | 'pos'
 const staffDrawer = { open: false };
 
 const FILTERS = [
@@ -151,7 +152,8 @@ export const staff = {
     };
     const u = Store.user;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
-    const activeFilter = q ? '' : st.filter;
+    const activeFilter = q || st.mode === 'pos' ? '' : st.filter;
+    const isPOS = st.mode === 'pos';
 
     return `<div class="admin staff-shell ${staffDrawer.open ? 'drawer-open' : ''}">
       <div class="admin-scrim" data-drawer-close aria-hidden="true"></div>
@@ -168,6 +170,10 @@ export const staff = {
         <nav class="admin-nav" aria-label="Order filters">
           ${FILTERS.map(([k, l, ic]) => `<button data-nav data-filter="${k}" class="${activeFilter === k ? 'on' : ''}" ${activeFilter === k ? 'aria-current="page"' : ''}>${ic}<span>${l}</span><i class="nav-count">${filterCount[k]}</i></button>`).join('')}
         </nav>
+        <p class="side-label">Jualan kaunter</p>
+        <nav class="admin-nav" aria-label="POS">
+          <button data-nav data-mode="pos" class="${isPOS ? 'on' : ''}" ${isPOS ? 'aria-current="page"' : ''}>${icon.wallet}<span>POS / Walk-in</span>${posTicketCount() ? `<i class="nav-count">${posTicketCount()}</i>` : ''}</button>
+        </nav>
         <p class="side-label">Tindakan</p>
         <nav class="admin-nav" aria-label="Actions">
           <button data-nav data-scan>${icon.scan}<span>Scan Order QR</span></button>
@@ -182,12 +188,17 @@ export const staff = {
       <main class="admin-main">
       <header class="admin-head">
         ${drawerButton(staffDrawer, filterCount.todo)}
-        <div class="admin-title"><h1>Pickup Counter</h1><small>${fmtDate(today)} • ${modeBadge}</small></div>
+        <div class="admin-title"><h1>${isPOS ? 'POS Kaunter' : 'Pickup Counter'}</h1><small>${fmtDate(today)} • ${modeBadge}</small></div>
         <div class="admin-head-actions">
           ${permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : ''}
           <button class="btn btn-primary btn-sm head-scan" data-scan aria-label="Scan QR">${icon.scan}<span class="hide-sm">Scan QR</span></button>
         </div>
       </header>
+      <div class="seg mode-switch">
+        <button class="${isPOS ? '' : 'on'}" data-mode="orders">${icon.bag} Pickup <i class="nav-count">${filterCount.todo}</i></button>
+        <button class="${isPOS ? 'on' : ''}" data-mode="pos">${icon.wallet} POS Walk-in</button>
+      </div>
+      ${isPOS ? posHTML() : `
       <section class="staff">
       <div class="staff-stats">
         <div class="stat"><b>${todays.length}</b><small>Today</small></div>
@@ -212,7 +223,7 @@ export const staff = {
           </section>`;
         }).join('') : `<div class="empty"><div class="empty-emoji">🎉</div><h3>All clear!</h3><p>No orders in this view.</p></div>`}
       </div>
-      </section>
+      </section>`}
       </main>
     </div>`;
   },
@@ -223,8 +234,9 @@ export const staff = {
   mount(root, ctx) {
     if (!Store.isStaff()) return;
     bindDrawer(root, staffDrawer);
-    $('[data-q]', root).addEventListener('input', (e) => { st.q = e.target.value; ctx.refresh({ keepFocus: '[data-q]' }); });
-    $('[data-q]', root).addEventListener('keydown', (e) => {
+    if (st.mode === 'pos') bindPOS(root, ctx);
+    $('[data-q]', root)?.addEventListener('input', (e) => { st.q = e.target.value; ctx.refresh({ keepFocus: '[data-q]' }); });
+    $('[data-q]', root)?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const exact = Store.order(e.target.value.trim().toUpperCase());
         if (exact) openVerify(exact.id);
@@ -236,8 +248,10 @@ export const staff = {
       if (t.closest('[data-scan]')) return openScanner();
       const bell = t.closest('[data-bell]');
       if (bell) return busy(bell, async () => { await enableNotifications(); toast('New-order alerts on 🔔', 'success'); ctx.refresh(); });
+      const md = t.closest('[data-mode]');
+      if (md) { st.mode = md.dataset.mode; window.scrollTo(0, 0); return ctx.refresh(); }
       const f = t.closest('[data-filter]');
-      if (f) { st.filter = f.dataset.filter; st.q = ''; window.scrollTo(0, 0); return ctx.refresh(); }
+      if (f) { st.filter = f.dataset.filter; st.q = ''; st.mode = 'orders'; window.scrollTo(0, 0); return ctx.refresh(); }
       const card = t.closest('[data-id]');
       if (!card) return;
       const id = card.dataset.id;

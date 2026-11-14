@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 import { Store, ACTIVE_STATUSES } from '../store.js';
 import { Cart, unitPrice, defaultVariant, variantText } from '../cart.js';
-import { CATEGORIES } from '../sample-data.js';
+import { categories, catName, catIcon } from '../categories.js';
 import { itemVisual, foodArt } from '../food-art.js';
 import { $, $$, esc, money, greeting, initials, fmtDate, fmtTime, todayStr, orderId, isValidPhone, isValidEmail, compressImage, debounce } from '../utils.js';
 import { icon, toast, modal, confirmDialog, busy, badge, loading } from '../ui.js';
@@ -15,8 +15,6 @@ import { itemsHTML, totalsHTML, trackerHTML, pickupInfoHTML, customerHTML, payme
 import { installState, promptInstall } from '../pwa.js';
 import { notifySupport, permission, savedSubscription, enableNotifications, disableNotifications, sendTestNotification, rememberMyOrder, myOrderIds } from '../push.js';
 
-const catName = (id) => CATEGORIES.find((c) => c.id === id)?.name || id;
-const catIcon = (id) => CATEGORIES.find((c) => c.id === id)?.icon || '🍽️';
 const isFav = (id) => (Store.user.favourites || []).includes(id);
 
 function myOrders() {
@@ -58,7 +56,7 @@ function rowCard(m) {
 }
 
 function catPills(active, { all = true, link = false } = {}) {
-  const pills = (all ? [{ id: '', name: 'All', icon: '✨' }] : []).concat(CATEGORIES);
+  const pills = (all ? [{ id: '', name: 'All', icon: '✨' }] : []).concat(categories());
   return `<div class="pills" role="tablist">${pills
     .map((c) =>
       link

@@ -64,7 +64,7 @@ export function pickupInfoHTML(o) {
     <div class="info"><span class="info-ico">${icon.calendar}</span><div><small>Pickup Date</small><strong>${fmtDate(o.pickupDate)}</strong></div></div>
     <div class="info"><span class="info-ico">${icon.clock}</span><div><small>Pickup Time</small><strong>${fmtTime(o.pickupTime)}</strong></div></div>
     <div class="info wide"><span class="info-ico">${icon.pin}</span><div><small>Pickup Location</small><strong>${esc(locationName(o.location))}</strong></div></div>
-    <div class="info"><span class="info-ico">${icon.bag}</span><div><small>Order Type</small><strong>${o.orderType === 'immediate' ? 'Immediate' : 'Scheduled'}</strong></div></div>
+    <div class="info"><span class="info-ico">${icon.bag}</span><div><small>Order Type</small><strong>${o.orderType === 'walk-in' ? 'Walk-in (POS)' : o.orderType === 'immediate' ? 'Immediate' : 'Scheduled'}</strong></div></div>
     <div class="info"><span class="info-ico">${icon.wallet}</span><div><small>Payment</small><strong>${PAY_LABEL[o.payment.method]}</strong></div></div>
   </div>`;
 }

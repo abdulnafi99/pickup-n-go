@@ -237,7 +237,7 @@ class LocalBackend {
   }
 
   slotCount(date, time) {
-    return this.state.orders.filter((o) => o.pickupDate === date && o.pickupTime === time && o.status !== 'Cancelled').length;
+    return this.state.orders.filter((o) => o.pickupDate === date && o.pickupTime === time && o.status !== 'Cancelled' && o.source !== 'pos').length;
   }
 
   async resetDemo() {
@@ -488,8 +488,15 @@ class FirebaseBackend {
   }
 
   async createOrder(order, check) {
-    const countRef = this.db.collection('slotCounts').doc(order.pickupDate);
     const orderRef = this.db.collection('orders').doc(order.id);
+    if (order.source === 'pos') {
+      // Walk-in counter sale: no pickup slot is booked.
+      const { id, ...data } = order;
+      void id;
+      await orderRef.set(data);
+      return order;
+    }
+    const countRef = this.db.collection('slotCounts').doc(order.pickupDate);
     await this.db.runTransaction(async (tx) => {
       const snap = await tx.get(countRef);
       const counts = snap.exists ? snap.data() : {};
@@ -512,7 +519,7 @@ class FirebaseBackend {
       if (snap?.exists) before = { id, ...snap.data() };
     }
     await ref.update({ ...patch, updatedAt: Date.now() });
-    if (before && patch.status === 'Cancelled' && before.status !== 'Cancelled') {
+    if (before && before.source !== 'pos' && patch.status === 'Cancelled' && before.status !== 'Cancelled') {
       const countRef = this.db.collection('slotCounts').doc(before.pickupDate);
       await countRef.set({ [before.pickupTime]: this.fb.firestore.FieldValue.increment(-1) }, { merge: true })
         .catch((e) => console.warn('Could not release pickup slot', e.code || e.message));
@@ -540,7 +547,7 @@ class FirebaseBackend {
 
   slotCount(date, time) {
     if (['staff', 'admin'].includes(this.state.user.role)) {
-      return this.state.orders.filter((o) => o.pickupDate === date && o.pickupTime === time && o.status !== 'Cancelled').length;
+      return this.state.orders.filter((o) => o.pickupDate === date && o.pickupTime === time && o.status !== 'Cancelled' && o.source !== 'pos').length;
     }
     return (this.slotCounts[date] || {})[time] || 0;
   }

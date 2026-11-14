@@ -6,7 +6,7 @@
 // ---------------------------------------------------------------------------
 import { Store, ACTIVE_STATUSES } from '../store.js';
 import { Cart } from '../cart.js';
-import { CATEGORIES } from '../sample-data.js';
+import { categories } from '../categories.js';
 import { esc, initials, fmtDate, fmtTime, greeting } from '../utils.js';
 import { icon } from '../ui.js';
 import { contactShopLink } from '../whatsapp.js';
@@ -60,7 +60,7 @@ function html() {
     </nav>
     <p class="side-label">Kategori</p>
     <nav class="cat-grid" aria-label="Kategori makanan">
-      ${CATEGORIES.map((c) => `<a href="#/menu?cat=${c.id}" class="cat-chip"><span class="cat-emoji">${c.icon}</span><span>${esc(c.name)}</span></a>`).join('')}
+      ${categories().map((c) => `<a href="#/menu?cat=${c.id}" class="cat-chip"><span class="cat-emoji">${c.icon}</span><span>${esc(c.name)}</span></a>`).join('')}
     </nav>
     <p class="side-label">Bantuan</p>
     <a href="${contactShopLink()}" target="_blank" rel="noopener" class="wa-pill">${icon.whatsapp}<span><strong>WhatsApp Kedai</strong><small>Tanya menu, pesanan & pickup</small></span></a>

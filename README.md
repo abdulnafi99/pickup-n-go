@@ -54,6 +54,16 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - **Scan QR** (kamera — BarcodeDetector atau jsQR) atau taip Order ID → skrin Verify → Mark as Completed (sahkan bayaran tunai).
 - Butang status seterusnya (Accept → Preparing → Ready → Completed) dan WhatsApp pickup reminder.
 
+**Kategori (Admin → Menu → 🏷️ Kategori)**
+- Tambah, ubah nama, tukar emoji, susun naik/turun dan padam kategori. Disimpan dalam `settings.categories` dan terus dikemas kini di app pelanggan.
+- Kategori yang masih digunakan oleh menu tidak boleh dipadam (pindahkan menu dahulu).
+
+**POS Kaunter (Staff → POS Walk-in)**
+- Jualan walk-in: pilih menu (carian + kategori), ubah kuantiti, nama/telefon/nota pilihan.
+- Bayaran tunai (kiraan baki + butang nilai pantas) atau DuitNow QR.
+- *Bayar & Selesai* (terus Completed) atau *Bayar & Sediakan* (masuk senarai To Do dapur), dengan resit boleh dicetak.
+- Disimpan sebagai pesanan biasa (`source: 'pos'`, `orderType: 'walk-in'`) jadi masuk jualan dashboard, tetapi **tidak mengambil slot pickup** pelanggan pra-tempah.
+
 **PWA**
 - `manifest.json` (ikon, maskable, shortcuts), `sw.js` (precache app shell, stale-while-revalidate, network-first navigation), `offline.html` fallback, banner offline, butang install (Android/desktop) + arahan iPhone.
 - Penjana & pengimbas QR dibundel dalam `js/vendor/` supaya berfungsi offline.

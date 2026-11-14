@@ -3,7 +3,7 @@
 // customers and shop/payment settings
 // ---------------------------------------------------------------------------
 import { Store, ORDER_STATUSES, ACTIVE_STATUSES } from '../store.js';
-import { CATEGORIES } from '../sample-data.js';
+import { categories, catName as catNameFn } from '../categories.js';
 import { ART_KEYS, itemVisual, foodArt } from '../food-art.js';
 import { $, $$, esc, money, uid, todayStr, addDays, fmtDate, fmtTime, fmtDateTime, compressImage, parseDate, DAYS_LONG, isValidPhone } from '../utils.js';
 import { icon, toast, modal, confirmDialog, busy, badge } from '../ui.js';
@@ -36,7 +36,7 @@ const st = {
   shop: null, // working copy of shop settings
 };
 
-export const catName = (id) => CATEGORIES.find((c) => c.id === id)?.name || id;
+export const catName = catNameFn;
 
 // ---------------------------------------------------------------------------
 // Access guard shared with staff view
@@ -280,7 +280,8 @@ function menuTab() {
   return `
     <div class="filters">
       <div class="search sm">${icon.search}<input type="search" data-mq value="${esc(st.menuQ)}" placeholder="Search menu"></div>
-      <select class="input sm" data-mcat><option value="">All categories</option>${CATEGORIES.map((c) => `<option value="${c.id}" ${st.menuCat === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}</select>
+      <select class="input sm" data-mcat><option value="">All categories</option>${categories().map((c) => `<option value="${esc(c.id)}" ${st.menuCat === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
+      <button class="btn btn-ghost btn-sm" data-edit-cats>🏷️ Kategori (${categories().length})</button>
       <button class="btn btn-primary btn-sm" data-add-menu>${icon.plus} Add New Menu</button>
       ${Store.mode === 'firebase' && !Store.menu.length ? '<button class="btn btn-accent btn-sm" data-seed>Seed sample menu</button>' : ''}
     </div>
@@ -316,10 +317,88 @@ function textToVariants(text) {
   }).filter((g) => g.name && g.options.length);
 }
 
+// ---------------------------------------------------------------------------
+// Category manager: add / rename / change emoji / reorder / delete categories.
+// Saved in settings.categories; a category still used by menu items can't be
+// deleted (move those items first) so nothing is orphaned.
+// ---------------------------------------------------------------------------
+function slugify(s) {
+  return String(s).toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 24) || 'kategori';
+}
+
+function openCategoryManager() {
+  let list = JSON.parse(JSON.stringify(categories()));
+  const usage = (id) => Store.menu.filter((m) => m.category === id).length;
+  const md = modal('', { title: 'Urus Kategori', wide: false });
+  const draw = (focusLast = false) => {
+    md.el.innerHTML = `<div class="cat-manager">
+      <p class="muted small">Ubah nama, emoji dan susunan kategori. Susunan di sini ialah susunan yang pelanggan nampak.</p>
+      <ul class="cat-list">${list.map((c, i) => {
+        const n = usage(c.id);
+        return `<li class="cat-row" data-i="${i}">
+          <input class="input sm cat-emoji-in" data-k="icon" value="${esc(c.icon)}" maxlength="8" aria-label="Emoji">
+          <div class="cat-name-wrap">
+            <input class="input sm" data-k="name" value="${esc(c.name)}" maxlength="30" placeholder="Nama kategori" aria-label="Nama kategori">
+            <small class="muted">${n} menu</small>
+          </div>
+          <div class="cat-actions">
+            <button type="button" class="icon-btn sm" data-up ${i === 0 ? 'disabled' : ''} aria-label="Naik">▲</button>
+            <button type="button" class="icon-btn sm" data-down ${i === list.length - 1 ? 'disabled' : ''} aria-label="Turun">▼</button>
+            <button type="button" class="icon-btn sm danger" data-del ${n ? 'disabled title="Pindahkan menu ke kategori lain dahulu"' : ''} aria-label="Padam">${icon.trash}</button>
+          </div>
+        </li>`;
+      }).join('')}</ul>
+      <button type="button" class="btn btn-ghost btn-block" data-add>${icon.plus} Tambah kategori</button>
+      <div class="btn-row"><button type="button" class="btn btn-ghost" data-close>Batal</button><button type="button" class="btn btn-primary" data-save>Simpan Kategori</button></div>
+    </div>`;
+    if (focusLast) md.el.querySelector('.cat-row:last-child [data-k="name"]')?.focus();
+  };
+  draw();
+  md.el.addEventListener('input', (e) => {
+    const row = e.target.closest('[data-i]');
+    if (row && e.target.dataset.k) list[Number(row.dataset.i)][e.target.dataset.k] = e.target.value;
+  });
+  md.el.addEventListener('click', async (e) => {
+    const row = e.target.closest('[data-i]');
+    const i = row ? Number(row.dataset.i) : -1;
+    if (e.target.closest('[data-up]') && i > 0) { [list[i - 1], list[i]] = [list[i], list[i - 1]]; return draw(); }
+    if (e.target.closest('[data-down]') && i < list.length - 1) { [list[i + 1], list[i]] = [list[i], list[i + 1]]; return draw(); }
+    if (e.target.closest('[data-del]') && i >= 0) {
+      if (usage(list[i].id)) return toast('Kategori ini masih digunakan oleh menu.', 'error');
+      if (!(await confirmDialog(`Padam kategori “${list[i].name}”?`, { ok: 'Padam', danger: true }))) return;
+      list.splice(i, 1);
+      return draw();
+    }
+    if (e.target.closest('[data-add]')) { list.push({ id: '', icon: '🍽️', name: '' }); return draw(true); }
+    const save = e.target.closest('[data-save]');
+    if (save) {
+      const cleaned = list.map((c) => ({ ...c, name: c.name.trim(), icon: (c.icon || '').trim() || '🍽️' }));
+      if (!cleaned.length) return toast('Perlu sekurang-kurangnya satu kategori.', 'error');
+      if (cleaned.some((c) => !c.name)) return toast('Setiap kategori perlu nama.', 'error');
+      const names = cleaned.map((c) => c.name.toLowerCase());
+      if (new Set(names).size !== names.length) return toast('Nama kategori tidak boleh berulang.', 'error');
+      const ids = new Set(cleaned.filter((c) => c.id).map((c) => c.id));
+      cleaned.forEach((c) => {
+        if (c.id) return;
+        let id = slugify(c.name);
+        while (ids.has(id)) id = `${slugify(c.name)}-${Math.random().toString(36).slice(2, 5)}`;
+        ids.add(id);
+        c.id = id;
+      });
+      busy(save, async () => {
+        await Store.saveSettings({ categories: cleaned.map(({ id, name, icon: ic }) => ({ id, name, icon: ic })) });
+        toast('Kategori disimpan', 'success');
+        md.close();
+      });
+    }
+  });
+}
+
 function openMenuForm(id) {
   const existing = id ? Store.menuItem(id) : null;
   const CAT_ART = { 'rice-noodles': 'nasi-lemak', 'main-course': 'ayam-goreng', snacks: 'karipap', desserts: 'cendol', drinks: 'kopi', kuih: 'kuih-lapis', combo: 'combo-nasi-lemak' };
-  const m = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('m_'), name: '', desc: '', price: '', category: CATEGORIES[0].id, art: CAT_ART[CATEGORIES[0].id], image: '', available: true, featured: false, popular: false, recommended: false, prepMin: 10, kcal: '', serves: 1, rating: 4.5, variants: [], createdAt: Date.now() };
+  const m = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('m_'), name: '', desc: '', price: '', category: categories()[0]?.id || '', art: CAT_ART[categories()[0]?.id] || 'nasi-lemak', image: '', available: true, featured: false, popular: false, recommended: false, prepMin: 10, kcal: '', serves: 1, rating: 4.5, variants: [], createdAt: Date.now() };
   const md = modal(`<form class="form menu-form" data-mform>
       <div class="mf-preview" data-preview>${itemVisual(m)}</div>
       <div class="mf-img-row">
@@ -331,7 +410,7 @@ function openMenuForm(id) {
       <label class="label">Short description *</label><textarea class="input" name="desc" rows="2" required maxlength="200">${esc(m.desc)}</textarea>
       <div class="two">
         <div><label class="label">Price (RM) *</label><input class="input" name="price" type="number" step="0.10" min="0" value="${m.price}" required></div>
-        <div><label class="label">Category *</label><select class="input" name="category">${CATEGORIES.map((c) => `<option value="${c.id}" ${m.category === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}</select></div>
+        <div><label class="label">Category *</label><select class="input" name="category">${categories().map((c) => `<option value="${esc(c.id)}" ${m.category === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}${m.category && !categories().some((c) => c.id === m.category) ? `<option value="${esc(m.category)}" selected>${esc(m.category)} (dipadam)</option>` : ''}</select></div>
       </div>
       <div class="three">
         <div><label class="label">Prep (min)</label><input class="input" name="prepMin" type="number" min="0" value="${m.prepMin ?? ''}"></div>
@@ -470,6 +549,7 @@ function pickupTab() {
 function customersTab() {
   const map = {};
   Store.orders.forEach((o) => {
+    if (!o.customer?.phone) return; // walk-in POS sale without contact
     const k = o.customer.phone;
     map[k] ||= { name: o.customer.name, phone: o.customer.phone, email: o.customer.email, orders: [], spent: 0, last: 0 };
     const c = map[k];
@@ -683,6 +763,7 @@ export const admin = {
 
       // Menu
       if (t.closest('[data-add-menu]')) return openMenuForm();
+      if (t.closest('[data-edit-cats]')) return openCategoryManager();
       const ed = t.closest('[data-edit]');
       if (ed) return openMenuForm(ed.dataset.edit);
       const del = t.closest('[data-del]');
