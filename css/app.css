@@ -1089,10 +1089,23 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .drawer-order > div { display: flex; flex-direction: column; min-width: 0; }
 .drawer-order small { font-size: 11px; opacity: .7; }
 .drawer-order strong { color: var(--accent); font-size: 14px; }
-.admin-nav.cats a { padding-top: 9px; padding-bottom: 9px; }
-.cat-emoji { width: 22px; text-align: center; font-size: 17px; }
-.admin-nav .wa-link svg { color: var(--wa); }
-.side-ok { font-style: normal; font-size: 11px; color: #7ee2a8; margin-left: 4px; }
+.cat-emoji { width: 22px; text-align: center; font-size: 17px; line-height: 1; }
+.row-emoji { width: 20px; text-align: center; font-size: 16px; line-height: 1; }
+/* Every drawer icon has a fixed size — fill icons (e.g. WhatsApp) have no intrinsic size */
+.admin-side svg { width: 20px; height: 20px; flex-shrink: 0; }
+.admin-side .logo-mark svg { width: 100%; height: 100%; }
+.side-ok, .side-off { margin-left: auto; font-style: normal; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 99px; }
+.side-ok { color: #7ee2a8; background: rgba(126, 226, 168, .12); }
+.side-off { color: var(--accent); background: rgba(244, 163, 64, .14); }
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px 0 4px; }
+.cat-chip { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 8px 10px; border-radius: 14px; background: rgba(255, 255, 255, .06); color: rgba(255, 255, 255, .88); font-size: 13px; font-weight: 500; line-height: 1.2; transition: background .2s; }
+.cat-chip:active, .cat-chip:hover { background: rgba(255, 255, 255, .12); }
+.wa-pill { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin-bottom: 4px; border-radius: 16px; background: rgba(37, 211, 102, .14); border: 1px solid rgba(37, 211, 102, .3); color: #fff; }
+.wa-pill svg { width: 28px; height: 28px; color: var(--wa); }
+.wa-pill span { display: flex; flex-direction: column; min-width: 0; }
+.wa-pill strong { font-size: 14px; }
+.wa-pill small { font-size: 11px; color: rgba(255, 255, 255, .6); }
+.side-note { display: flex; align-items: center; gap: 10px; }
 .side-version { margin: 8px 12px 0; font-size: 11px; color: rgba(255, 255, 255, .4); }
 .side-version .mode-on { color: #7ee2a8; }
 .side-version .mode-demo { color: #ffc77a; }
@@ -1100,6 +1113,38 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .nav-pill button svg { width: 22px; height: 22px; }
 .nav-pill button.on { color: #fff; }
 .brandbar .cd-btn { margin-right: 2px; }
+
+/* ---------- Drawer chrome on phones: pinned header & footer ------------- */
+.cdrawer .admin-side { padding-top: 0; padding-bottom: 0; gap: 4px; }
+.cdrawer .admin-brand, .cdrawer .admin-foot { background: var(--dark); z-index: 3; }
+.cdrawer .admin-brand {
+  position: sticky; top: 0; flex-shrink: 0;
+  margin: 0 -14px 4px calc(-1 * max(14px, var(--safe-l)));
+  padding: calc(14px + var(--safe-t)) 14px 12px max(14px, var(--safe-l));
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+}
+.cdrawer .admin-foot {
+  position: sticky; bottom: 0; flex-shrink: 0;
+  margin: auto -14px 0 calc(-1 * max(14px, var(--safe-l)));
+  padding: 10px 14px calc(12px + var(--safe-b)) max(14px, var(--safe-l));
+}
+.cdrawer .admin-nav a, .cdrawer .admin-nav button, .cdrawer .admin-foot a { min-height: 46px; padding-top: 10px; padding-bottom: 10px; }
+.cdrawer .drawer-user { margin-bottom: 4px; }
+.cdrawer .side-label { margin-top: 12px; }
+@media (max-width: 959px) {
+  .admin-side { padding-top: 0; padding-bottom: 0; }
+  .admin-side .admin-brand {
+    position: sticky; top: 0; flex-shrink: 0; z-index: 3; background: var(--dark);
+    margin: 0 -14px 4px calc(-1 * max(14px, var(--safe-l)));
+    padding: calc(14px + var(--safe-t)) 14px 12px max(14px, var(--safe-l));
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+  }
+  .admin-side .admin-foot {
+    position: sticky; bottom: 0; flex-shrink: 0; z-index: 3; background: var(--dark);
+    margin: auto -14px 0 calc(-1 * max(14px, var(--safe-l)));
+    padding: 10px 14px calc(12px + var(--safe-b)) max(14px, var(--safe-l));
+  }
+}
 
 /* Data mode indicator */
 .mode-on { color: var(--ok); }

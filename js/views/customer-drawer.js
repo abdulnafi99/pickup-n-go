@@ -59,20 +59,20 @@ function html() {
       ${link('#/profile', icon.heart, 'Favourites & Profile', 'profile', favCount)}
     </nav>
     <p class="side-label">Kategori</p>
-    <nav class="admin-nav cats" aria-label="Kategori makanan">
-      ${CATEGORIES.map((c) => `<a href="#/menu?cat=${c.id}"><span class="cat-emoji">${c.icon}</span><span>${esc(c.name)}</span></a>`).join('')}
+    <nav class="cat-grid" aria-label="Kategori makanan">
+      ${CATEGORIES.map((c) => `<a href="#/menu?cat=${c.id}" class="cat-chip"><span class="cat-emoji">${c.icon}</span><span>${esc(c.name)}</span></a>`).join('')}
     </nav>
     <p class="side-label">Bantuan</p>
+    <a href="${contactShopLink()}" target="_blank" rel="noopener" class="wa-pill">${icon.whatsapp}<span><strong>WhatsApp Kedai</strong><small>Tanya menu, pesanan & pickup</small></span></a>
     <nav class="admin-nav" aria-label="Bantuan">
-      <a href="${contactShopLink()}" target="_blank" rel="noopener" class="wa-link">${icon.whatsapp}<span>WhatsApp Kedai</span></a>
-      <a href="#/profile">🔔<span>Notifikasi ${permission() === 'granted' ? '<em class="side-ok">aktif</em>' : ''}</span></a>
+      <a href="#/profile"><span class="row-emoji">🔔</span><span>Notifikasi</span>${permission() === 'granted' ? '<em class="side-ok">Aktif</em>' : '<em class="side-off">Hidupkan</em>'}</a>
       ${inst.canInstall ? `<button data-nav data-install>${icon.install}<span>Pasang App</span></button>` : ''}
-      ${inst.ios ? `<span class="side-note">${icon.install} iPhone: Share → Add to Home Screen</span>` : ''}
+      ${inst.ios ? `<span class="side-note">${icon.install}<span>iPhone: Share → Add to Home Screen</span></span>` : ''}
     </nav>
     <div class="admin-foot">
       ${Store.isAdmin() ? `<a href="#/admin">${icon.chart}<span>Admin Panel</span></a>` : ''}
       ${Store.isStaff() ? `<a href="#/staff">${icon.scan}<span>Staff Counter</span></a>` : `<a href="#/login">${icon.store}<span>Staff / Admin Login</span></a>`}
-      <p class="side-version">v1.4 • ${Store.mode === 'firebase' ? '<b class="mode-on">Firebase</b>' : '<b class="mode-demo">Demo mode</b>'}</p>
+      <p class="side-version">v1.6 • ${Store.mode === 'firebase' ? '<b class="mode-on">Firebase</b>' : '<b class="mode-demo">Demo mode</b>'}</p>
     </div>`;
 }
 
