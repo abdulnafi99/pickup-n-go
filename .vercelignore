@@ -4,4 +4,3 @@ storage.rules
 database.rules.json
 firebase.json
 *-debug.log
-firestore.tapjerr.rules
