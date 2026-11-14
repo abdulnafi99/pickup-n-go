@@ -58,12 +58,6 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - `manifest.json` (ikon, maskable, shortcuts), `sw.js` (precache app shell, stale-while-revalidate, network-first navigation), `offline.html` fallback, banner offline, butang install (Android/desktop) + arahan iPhone.
 - Penjana & pengimbas QR dibundel dalam `js/vendor/` supaya berfungsi offline.
 
-## Realtime Database rules (Selagi Coffee loyalty)
-
-`database.rules.json` ialah security rules **Firebase Realtime Database** untuk sistem loyalti Selagi Coffee (customers, reviews, promotions, redeemItems, infoTerkini, broadcasts, password reset, push tokens) dalam projek Firebase yang sama. Ia **berasingan** daripada `firestore.rules` (app PICK UP N GO guna Cloud Firestore) dan tidak menjejaskan satu sama lain.
-
-Pasang: Firebase Console → **Realtime Database → Rules** → tampal isi fail → **Publish**, atau `firebase deploy --only database`.
-
 ## Push notification
 
 - **Customer**: tekan *Hidupkan Notifikasi* (halaman pesanan atau Profile). Bila staff/admin tukar status pesanan (Accepted → Preparing → **Ready for Pickup** → Completed), pelanggan terima notifikasi push walaupun app ditutup. Staff/admin juga boleh hantar *Push Reminder* untuk pickup.

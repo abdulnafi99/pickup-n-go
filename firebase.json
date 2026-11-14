@@ -1,7 +1,4 @@
 {
-  "database": {
-    "rules": "database.rules.json"
-  },
   "firestore": {
     "rules": "firestore.rules"
   },
@@ -15,8 +12,7 @@
       "**/.*",
       "**/node_modules/**",
       "*.rules",
-      "README.md",
-      "database.rules.json"
+      "README.md"
     ],
     "headers": [
       {
@@ -52,9 +48,6 @@
     "ui": {
       "enabled": false
     },
-    "singleProjectMode": true,
-    "database": {
-      "port": 9000
-    }
+    "singleProjectMode": true
   }
 }
