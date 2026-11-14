@@ -15,13 +15,13 @@ import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
 
 const TABS = [
-  ['dashboard', 'Dashboard', icon.chart],
-  ['orders', 'Orders', icon.receipt],
-  ['schedule', 'Pickup Schedule', icon.calendar],
-  ['menu', 'Menu', icon.grid],
-  ['pickup', 'Pickup Settings', icon.clock],
-  ['customers', 'Customers', icon.people],
-  ['settings', 'Shop & Payment', icon.settings],
+  ['dashboard', 'Dashboard', icon.chart, 'Operasi'],
+  ['orders', 'Orders', icon.receipt, 'Operasi'],
+  ['schedule', 'Pickup Schedule', icon.calendar, 'Operasi'],
+  ['menu', 'Menu', icon.grid, 'Kedai'],
+  ['pickup', 'Pickup Settings', icon.clock, 'Kedai'],
+  ['settings', 'Shop & Payment', icon.settings, 'Kedai'],
+  ['customers', 'Customers', icon.people, 'Pelanggan'],
 ];
 
 const st = {
@@ -607,6 +607,12 @@ export const admin = {
     const pending = Store.orders.filter((o) => o.status === 'Pending Confirmation').length;
     void ctx;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
+    const today = todayStr();
+    const todays = Store.orders.filter((o) => o.pickupDate === today);
+    const salesToday = todays.filter((o) => o.status !== 'Cancelled').reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const soldOut = Store.menu.filter((m) => !m.available).length;
+    const navBadge = (k) => (k === 'orders' && pending ? `<i class="nbadge">${pending}</i>` : k === 'menu' && soldOut ? `<i class="nav-count" title="Sold out">${soldOut} habis</i>` : '');
+    const groups = [...new Set(TABS.map((t) => t[3]))];
     return `<div class="admin ${adminDrawer.open ? 'drawer-open' : ''}">
       <div class="admin-scrim" data-drawer-close aria-hidden="true"></div>
       <aside class="admin-side" id="admin-drawer" aria-label="Admin navigation">
@@ -618,11 +624,18 @@ export const admin = {
           <span class="avatar">${esc((Store.user.name || Store.user.email || 'A').slice(0, 1).toUpperCase())}</span>
           <div><strong>${esc(Store.user.name || 'Admin')}</strong><small>${esc(Store.user.email || '')}</small><small>${modeBadge}</small></div>
         </div>
-        <nav class="admin-nav">${TABS.map(([k, l, ic]) => `<a href="#/admin/${k}" class="${k === tab[0] ? 'on' : ''}" ${k === tab[0] ? 'aria-current="page"' : ''}>${ic}<span>${l}</span>${k === 'orders' && pending ? `<i class="nbadge">${pending}</i>` : ''}</a>`).join('')}</nav>
+        <a class="side-stats" href="#/admin/dashboard" aria-label="Ringkasan hari ini">
+          <span><b>${todays.length}</b><small>Pesanan hari ini</small></span>
+          <span><b>RM${salesToday.toFixed(0)}</b><small>Jualan</small></span>
+          <span class="${pending ? 'warn' : ''}"><b>${pending}</b><small>Menunggu</small></span>
+        </a>
+        ${groups.map((g) => `<p class="side-label">${g}</p>
+        <nav class="admin-nav" aria-label="${g}">${TABS.filter((t) => t[3] === g).map(([k, l, ic]) => `<a href="#/admin/${k}" class="${k === tab[0] ? 'on' : ''}" ${k === tab[0] ? 'aria-current="page"' : ''}>${ic}<span>${l}</span>${navBadge(k)}</a>`).join('')}</nav>`).join('')}
+        <a class="side-cta" href="#/staff">${icon.scan}<span><strong>Kaunter Staff</strong><small>Scan QR &amp; serah pesanan</small></span>${icon.chevronRight}</a>
         <div class="admin-foot">
-          <a href="#/staff">${icon.scan}<span>Staff Counter</span></a>
           <a href="#/home">${icon.store}<span>Customer App</span></a>
-          <button data-logout>${icon.logout}<span>Log out</span></button>
+          <button data-logout class="side-logout">${icon.logout}<span>Log out</span></button>
+          <p class="side-version">v1.7 • ${Store.mode === 'firebase' ? '<b class="mode-on">Firebase</b>' : '<b class="mode-demo">Demo mode</b>'}</p>
         </div>
       </aside>
       <main class="admin-main">

@@ -1114,6 +1114,30 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .nav-pill button.on { color: #fff; }
 .brandbar .cd-btn { margin-right: 2px; }
 
+/* ---------- Admin drawer extras ----------------------------------------- */
+.side-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 2px 0 2px; }
+.side-stats span { display: flex; flex-direction: column; gap: 1px; padding: 10px 8px; border-radius: 14px; background: rgba(255, 255, 255, .06); color: #fff; min-width: 0; }
+.side-stats b { font-size: 16px; font-weight: 700; line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-stats small { font-size: 10.5px; line-height: 1.2; color: rgba(255, 255, 255, .55); }
+.side-stats span.warn { background: rgba(210, 70, 58, .2); }
+.side-stats span.warn b { color: #ff9b91; }
+.side-cta { display: flex; align-items: center; gap: 12px; margin-top: 14px; padding: 12px 14px; border-radius: 16px; background: rgba(244, 163, 64, .12); border: 1px solid rgba(244, 163, 64, .35); color: #fff; }
+.side-cta > svg:first-child { width: 24px; height: 24px; color: var(--accent); }
+.side-cta > svg:last-child { margin-left: auto; opacity: .5; }
+.side-cta span { display: flex; flex-direction: column; min-width: 0; }
+.side-cta strong { font-size: 14px; }
+.side-cta small { font-size: 11px; color: rgba(255, 255, 255, .6); }
+.admin-foot .side-logout { color: #ff9b91; }
+.admin-foot .side-logout:hover { background: rgba(210, 70, 58, .15); color: #ffb4ab; }
+.admin-nav .nav-count[title] { font-size: 10.5px; font-weight: 600; color: #ffc77a; background: rgba(244, 163, 64, .14); }
+.admin-nav .on .nav-count[title] { color: var(--dark); background: rgba(0, 0, 0, .12); }
+.admin-side .side-label:first-of-type { margin-top: 12px; }
+@media (max-width: 959px) {
+  .admin-side { gap: 4px; }
+  .admin-nav a, .admin-nav button, .admin-foot a, .admin-foot button { min-height: 46px; }
+  .admin-side .drawer-user { margin-bottom: 2px; }
+}
+
 /* ---------- Drawer chrome on phones: pinned header & footer ------------- */
 .cdrawer .admin-side { padding-top: 0; padding-bottom: 0; gap: 4px; }
 .cdrawer .admin-brand, .cdrawer .admin-foot { background: var(--dark); z-index: 3; }
