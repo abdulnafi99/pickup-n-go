@@ -24,7 +24,7 @@ const routes = [
   [/^profile$/, C.profile],
   [/^login$/, C.login],
   [/^staff$/, staff],
-  [/^admin(?:\/([a-z]+))?$/, admin],
+  [/^admin(?:\/([a-z-]+))?$/, admin],
 ];
 
 const viewEl = $('#view');

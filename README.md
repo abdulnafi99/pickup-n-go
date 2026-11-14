@@ -44,6 +44,7 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - Dashboard: Total Orders Today, Total Sales Today, Pending, Preparing, Ready, Completed, Popular Menu, carta jualan 7 hari.
 - Orders: tapis status/tarikh, carian, Accept/Reject, tukar status, verify/reject pembayaran, lihat resit, print receipt (format printer thermal), WhatsApp status update / pickup reminder, export CSV.
 - Pickup Schedule: papan slot harian dengan kapasiti.
+- **Laporan POS** (`#/admin/pos-report`): laporan jualan walk-in harian — pilih tarikh (◀ ▶ / kalendar / Hari ini). Jualan bersih & kasar, bil. transaksi, purata, item dijual, diskaun, jualan dibatalkan; pecahan ikut kaedah bayaran (dengan tunai yang patut ada dalam laci), ikut jam, item terlaris, staff dan kod diskaun; senarai transaksi (tekan untuk butiran); carta 7 hari. Butang **Cetak laporan** (format thermal 80mm, laporan tutup kaunter) dan **CSV**.
 - Menu: tambah/edit/padam, upload gambar, harga, kategori, variasi, Available/Sold Out, Featured/Popular/Recommended.
 - Pickup Settings: waktu operasi setiap hari, slot (tambah/padam/hidup-mati/jana automatik), maksimum pesanan per slot, masa penyediaan, hari tempahan awal, tarikh disekat, lokasi pickup.
 - Customers: senarai pelanggan, jumlah pesanan & belanja, sejarah, WhatsApp/call.
@@ -103,7 +104,7 @@ js/push.js            Web Push + notifikasi tempatan
 api/push.js           Fungsi serverless Vercel untuk hantar push (web-push)
 js/food-art.js        Ilustrasi makanan SVG (offline)
 js/sample-data.js     Menu, kategori, tetapan & akaun demo
-js/views/             customer.js, admin.js, staff.js, shared.js
+js/views/             customer.js, admin.js, staff.js, pos.js, pos-report.js, shared.js
 js/vendor/            qrcode-generator (MIT), jsQR (Apache-2.0)
 firestore.rules  storage.rules  firebase.json
 ```

@@ -13,11 +13,13 @@ import { itemsHTML, totalsHTML, pickupInfoHTML, customerHTML, paymentHTML, print
 import { logoSVG } from './customer.js';
 import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
+import { posReportHTML, exportPosCSV, printPosReport } from './pos-report.js';
 
 const TABS = [
   ['dashboard', 'Dashboard', icon.chart, 'Operasi'],
   ['orders', 'Orders', icon.receipt, 'Operasi'],
   ['schedule', 'Pickup Schedule', icon.calendar, 'Operasi'],
+  ['pos-report', 'Laporan POS', icon.chart, 'Operasi'],
   ['menu', 'Menu', icon.grid, 'Kedai'],
   ['pickup', 'Pickup Settings', icon.clock, 'Kedai'],
   ['settings', 'Shop & Payment', icon.settings, 'Kedai'],
@@ -29,6 +31,7 @@ const st = {
   orderDate: '',
   orderQ: '',
   schedDate: todayStr(),
+  repDate: todayStr(),
   menuQ: '',
   menuCat: '',
   custQ: '',
@@ -683,7 +686,7 @@ export const admin = {
   render(ctx) {
     if (!Store.isAdmin()) return deniedHTML('#/admin', 'admin');
     const tab = TABS.find((t) => t[0] === currentTab) || TABS[0];
-    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, menu: menuTab, pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
+    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), menu: menuTab, pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
     const pending = Store.orders.filter((o) => o.status === 'Pending Confirmation').length;
     void ctx;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
@@ -758,6 +761,12 @@ export const admin = {
       if (t.closest('[data-export]')) return exportCSV();
       const sd = t.closest('[data-sday]');
       if (sd) { st.schedDate = sd.dataset.sday === '0' ? todayStr() : addDays(st.schedDate, Number(sd.dataset.sday)); return rerender(); }
+      const rd = t.closest('[data-rday]');
+      if (rd) { const n = Number(rd.dataset.rday); st.repDate = n === 0 ? todayStr() : addDays(st.repDate, n); if (st.repDate > todayStr()) st.repDate = todayStr(); return rerender(); }
+      const rg = t.closest('[data-rgo]');
+      if (rg) { st.repDate = rg.dataset.rgo; return rerender(); }
+      if (t.closest('[data-rep-print]')) return printPosReport(st.repDate);
+      if (t.closest('[data-rep-csv]')) return exportPosCSV(st.repDate);
       const cust = t.closest('[data-cust]');
       if (cust && !t.closest('a')) return openCustomer(cust.dataset.cust);
 
@@ -858,6 +867,7 @@ export const admin = {
     root.addEventListener('change', async (e) => {
       const t = e.target;
       if (t.matches('[data-odate]')) { st.orderDate = t.value; rerender(); }
+      if (t.matches('[data-rdate]')) { st.repDate = t.value && t.value <= todayStr() ? t.value : todayStr(); rerender(); }
       if (t.matches('[data-sdate]')) { st.schedDate = t.value || todayStr(); rerender(); }
       if (t.matches('[data-mcat]')) { st.menuCat = t.value; rerender(); }
       if (t.matches('[data-toggle-avail]')) {
