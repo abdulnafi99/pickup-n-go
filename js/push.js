@@ -216,7 +216,7 @@ export async function showLocal(title, body, url, tag) {
 export const STATUS_TEXT = {
   'Pending Confirmation': ['Pesanan diterima 🧾', 'Pesanan anda sedang menunggu pengesahan kedai.'],
   'Order Accepted': ['Pesanan disahkan ✅', 'Kedai telah menerima pesanan anda.'],
-  Preparing: ['Sedang disediakan 👨‍🍳', 'Makanan anda sedang dimasak sekarang.'],
+  Preparing: ['Sedang disediakan 👨‍🍳', 'Pesanan anda sedang disediakan sekarang.'],
   'Ready for Pickup': ['Sedia untuk diambil! 🎉', 'Pesanan anda sudah siap. Sila datang ke kaunter dan tunjukkan QR.'],
   Completed: ['Terima kasih! 💚', 'Pesanan telah diambil. Selamat menjamu selera!'],
   Cancelled: ['Pesanan dibatalkan', 'Pesanan anda telah dibatalkan. Hubungi kedai untuk maklumat lanjut.'],

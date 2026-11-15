@@ -53,13 +53,13 @@ function html() {
       </a>` : ''}
     <nav class="admin-nav" aria-label="Navigasi utama">
       ${link('#/home', icon.home, 'Home', 'home')}
-      ${link('#/menu', icon.grid, 'Food Catalog', 'menu')}
+      ${link('#/menu', icon.grid, 'Our Menu', 'menu')}
       ${link('#/cart', icon.bag, 'My Cart', 'cart', cartCount)}
       ${link('#/orders', icon.receipt, 'My Orders', 'orders', active.length)}
       ${link('#/profile', icon.heart, 'Favourites & Profile', 'profile', favCount)}
     </nav>
     <p class="side-label">Kategori</p>
-    <nav class="cat-grid" aria-label="Kategori makanan">
+    <nav class="cat-grid" aria-label="Kategori menu">
       ${categories().map((c) => `<a href="#/menu?cat=${c.id}" class="cat-chip"><span class="cat-emoji">${c.icon}</span><span>${esc(c.name)}</span></a>`).join('')}
     </nav>
     <p class="side-label">Bantuan</p>

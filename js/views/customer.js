@@ -159,9 +159,9 @@ export const welcome = {
       <p class="welcome-time">${icon.clock} Ready in as fast as 15 min</p>
       <div class="welcome-hero">
         <div class="blob"></div>
-        <div class="welcome-art">${foodArt('nasi-lemak-ayam')}</div>
+        <div class="welcome-art">${foodArt('kopi')}</div>
       </div>
-      <p class="welcome-text">Pre-order your favourite Malaysian food, choose your pickup date &amp; time, and just grab it at the counter — <strong>no more long queues.</strong></p>
+      <p class="welcome-text">Pre-order your favourite coffee, choose your pickup time, and just grab it at the counter — <strong>no more long queues.</strong></p>
       <ul class="welcome-steps">
         <li><b>1</b> Browse &amp; add to cart</li>
         <li><b>2</b> Pick date &amp; time</li>
@@ -212,12 +212,12 @@ export const home = {
       </div>
       <div class="hello">
         <p>${greeting()} 👋</p>
-        <h1>${esc(u.name ? u.name.split(' ')[0] : 'Food Lover')}</h1>
+        <h1>${esc(u.name ? u.name.split(' ')[0] : 'Coffee Lover')}</h1>
       </div>
 
       <form class="search" data-search role="search">
         ${icon.search}
-        <input type="search" name="q" placeholder="What are you craving?" aria-label="Search food" autocomplete="off">
+        <input type="search" name="q" placeholder="Craving a latte?" aria-label="Search menu" autocomplete="off">
       </form>
 
       ${active.length ? `<a class="active-order" href="#/order/${active[0].id}">
@@ -226,14 +226,13 @@ export const home = {
           ${icon.chevronRight}
         </a>` : ''}
 
-      <div class="promo">
+      <div class="promo promo-photo">
         <div class="promo-text">
-          <span class="promo-chip">Skip the queue</span>
-          <h2>Pre-order now,<br>pick up on time!</h2>
-          ${promo ? `<p>Use code <b>${esc(promo.code)}</b> — ${promo.type === 'percent' ? promo.value + '% off' : money(promo.value) + ' off'}${promo.minSpend ? ` (min ${money(promo.minSpend)})` : ''}</p>` : '<p>Fresh food, ready when you arrive.</p>'}
+          <span class="promo-chip">☕ Skip the queue</span>
+          <h2>Pre-order coffee,<br>pick up on time!</h2>
+          ${promo ? `<p>Use code <b>${esc(promo.code)}</b> — ${promo.type === 'percent' ? promo.value + '% off' : money(promo.value) + ' off'}${promo.minSpend ? ` (min ${money(promo.minSpend)})` : ''}</p>` : '<p>Freshly brewed, ready when you arrive.</p>'}
           <a href="#/menu" class="btn btn-accent btn-sm">Order Now</a>
         </div>
-        <div class="promo-art">${foodArt('mee-goreng')}</div>
       </div>
 
       ${sectionHead('Categories')}
@@ -314,12 +313,12 @@ export const catalog = {
     return `<section class="page catalog">
       <div class="page-head">
         <a href="#/home" class="icon-btn" aria-label="Back">${icon.back}</a>
-        <h1>Food Catalog</h1>
+        <h1>Our Menu</h1>
         <a href="#/cart" class="icon-btn" aria-label="Cart">${icon.bag}</a>
       </div>
       <form class="search" data-search role="search">
         ${icon.search}
-        <input type="search" name="q" value="${esc(q)}" placeholder="Search nasi lemak, teh tarik…" aria-label="Search menu" autocomplete="off">
+        <input type="search" name="q" value="${esc(q)}" placeholder="Search latte, mocha, matcha…" aria-label="Search menu" autocomplete="off">
       </form>
       ${catPills(cat)}
       <div class="toolbar">
@@ -336,7 +335,7 @@ export const catalog = {
 
       <p class="count" data-count>${list.length} item${list.length === 1 ? '' : 's'}${cat ? ` in ${esc(catName(cat))}` : ''}${q ? ` for “${esc(q)}”` : ''}</p>
       <div class="grid" data-grid>${list.length ? list.map((m) => foodCard(m)).join('') : ''}</div>
-      ${list.length ? '' : emptyState('🔍', 'No food found', 'Try another keyword or category.', '<button class="btn btn-ghost" data-clear>Clear filters</button>')}
+      ${list.length ? '' : emptyState('🔍', 'Nothing found', 'Try another keyword or category.', '<button class="btn btn-ghost" data-clear>Clear filters</button>')}
     </section>`;
   },
   mount(root, ctx) {
@@ -550,7 +549,7 @@ export const cart = {
     if (!lines.length) {
       return `<section class="page">
         <div class="page-head"><a href="#/menu" class="icon-btn" aria-label="Back">${icon.back}</a><h1>My Cart</h1><span></span></div>
-        ${emptyState('🛒', 'Your cart is empty', 'Add some delicious food from the catalog.', '<a href="#/menu" class="btn btn-primary">Browse Menu</a>')}
+        ${emptyState('🛒', 'Your cart is empty', 'Add your favourite drinks from the menu.', '<a href="#/menu" class="btn btn-primary">Browse Menu</a>')}
       </section>`;
     }
     const t = Cart.totals();

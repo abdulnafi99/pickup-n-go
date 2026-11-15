@@ -119,7 +119,7 @@ export async function downloadReceipt(o) {
   ctx.font = '800 30px Poppins, Arial, sans-serif';
   ctx.fillText(s.shopName, pad, 58);
   ctx.font = '400 15px Poppins, Arial, sans-serif';
-  ctx.fillText('Order Receipt • Smart Food Pre-Order & Pickup', pad, 88);
+  ctx.fillText('Order Receipt • Smart Coffee Pre-Order & Pickup', pad, 88);
   ctx.fillText(fmtDateTime(o.createdAt), pad, 110);
 
   let y = 170;
