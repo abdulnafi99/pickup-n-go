@@ -2,6 +2,7 @@
 // Shopping cart (persisted in LocalStorage so it survives refresh/offline)
 // ---------------------------------------------------------------------------
 import { Store } from './store.js';
+import { addonPrice, addonGroups } from './addons.js';
 
 const KEY = 'png_cart';
 const PROMO_KEY = 'png_promo';
@@ -26,7 +27,16 @@ export function unitPrice(item, variant = {}) {
     const opt = g.options.find((o) => o.label === variant[g.name]);
     if (opt) p += Number(opt.price) || 0;
   });
+  p += addonPrice(item, variant);
   return Math.max(0, +p.toFixed(2));
+}
+
+/** Same picks → same key order, so identical lines merge in the cart/ticket. */
+export function normalizeVariant(item, variant = {}) {
+  const out = {};
+  const order = [...(item?.variants || []).map((g) => g.name), ...addonGroups().map((g) => g.name), ...Object.keys(variant)];
+  order.forEach((k) => { if (variant[k] && !(k in out)) out[k] = variant[k]; });
+  return out;
 }
 
 export const variantText = (variant = {}) => Object.values(variant).filter(Boolean).join(', ');
@@ -44,6 +54,7 @@ export const Cart = {
   },
 
   add(item, qty = 1, variant = defaultVariant(item), note = '') {
+    variant = normalizeVariant(item, variant);
     const key = item.id + '|' + JSON.stringify(variant) + '|' + note.trim();
     const existing = this.items.find((l) => l.key === key);
     if (existing) existing.qty = Math.min(99, existing.qty + qty);

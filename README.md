@@ -60,6 +60,13 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - Tambah, ubah nama, tukar emoji, susun naik/turun dan padam kategori. Disimpan dalam `settings.categories` dan terus dikemas kini di app pelanggan.
 - Kategori yang masih digunakan oleh menu tidak boleh dipadam (pindahkan menu dahulu).
 
+**Add-on / special request (Admin → Add-on)**
+- Senarai add-on dikongsi (cth. *Add-on*: Extra Shot +RM2, Oat Milk +RM2.50; *Topping*; *Ais*: Kurang Ais / Tanpa Ais). Butang **Guna contoh minuman** untuk mula cepat.
+- Setiap kumpulan: nama, jenis **Pilih beberapa** (dengan had maksimum) atau **Pilih satu**, pilihan dengan harga tambahan dan suis **Ada / Habis**.
+- **Sambung** ke kategori (cth. semua *Drinks*) dan/atau menu tertentu; menu dalam kategori boleh dikecualikan. Juga boleh tanda/nyahtanda dari borang Edit Menu.
+- Pelanggan nampak pilihan add-on di halaman menu, POS nampak dalam pemilih variasi (menu tanpa variasi tunjuk “+ Add-on”). Harga dikira automatik; pilihan disimpan bersama variasi item jadi muncul di troli, mesej WhatsApp, resit, senarai staff dan admin.
+- Disimpan dalam `settings.addonGroups` (lihat `js/addons.js`).
+
 **POS Kaunter (Staff → POS Walk-in)**
 - Jualan walk-in: pilih menu (carian + kategori), ubah kuantiti, nama/telefon/nota pilihan.
 - Menu dengan variasi (cth. Portion, Spice Level, Panas/Sejuk, Add-on) membuka pemilih variasi: pilih pilihan (harga dikemas kini termasuk tambahan/potongan), kuantiti dan nota item. Variasi berbeza = baris tiket berasingan; butang *Ubah* di skrin bayaran untuk menukar variasi sesuatu baris.
@@ -96,6 +103,7 @@ js/app.js             Bootstrap + hash router
 js/config.js          FIREBASE_CONFIG (null = demo mode)
 js/store.js           Data layer: LocalBackend & FirebaseBackend
 js/cart.js            Cart, harga variasi, promo
+js/addons.js          Senarai add-on dikongsi (harga, pilihan, pautan menu)
 js/pickup.js          Peraturan slot pickup & waktu operasi
 js/whatsapp.js        Mesej WhatsApp auto-jana
 js/qr.js              Jana & imbas QR
@@ -105,7 +113,7 @@ js/push.js            Web Push + notifikasi tempatan
 api/push.js           Fungsi serverless Vercel untuk hantar push (web-push)
 js/food-art.js        Ilustrasi makanan SVG (offline)
 js/sample-data.js     Menu, kategori, tetapan & akaun demo
-js/views/             customer.js, admin.js, staff.js, pos.js, pos-report.js, monthly-report.js, shared.js
+js/views/             customer.js, admin.js, staff.js, pos.js, pos-report.js, monthly-report.js, addons-admin.js, shared.js
 js/vendor/            qrcode-generator (MIT), jsQR (Apache-2.0)
 firestore.rules  storage.rules  firebase.json
 ```

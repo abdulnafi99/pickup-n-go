@@ -14,6 +14,8 @@ import { logoSVG } from './customer.js';
 import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
 import { posReportHTML, exportPosCSV, printPosReport } from './pos-report.js';
+import { addonsTabHTML, cloneAddons, addonsClick, addonsInput, addonsChange, menuFormAddonsHTML, saveMenuAddonLinks } from './addons-admin.js';
+import { addonsFor } from '../addons.js';
 import { monthlyReportHTML, exportMonthCSV, printMonthReport, thisMonth, shiftMonth } from './monthly-report.js';
 
 const TABS = [
@@ -23,6 +25,7 @@ const TABS = [
   ['pos-report', 'Laporan POS', icon.chart, 'Operasi'],
   ['monthly-report', 'Laporan Bulanan', icon.calendar, 'Operasi'],
   ['menu', 'Menu', icon.grid, 'Kedai'],
+  ['addons', 'Add-on', icon.plus, 'Kedai'],
   ['pickup', 'Pickup Settings', icon.clock, 'Kedai'],
   ['settings', 'Shop & Payment', icon.settings, 'Kedai'],
   ['customers', 'Customers', icon.people, 'Pelanggan'],
@@ -41,6 +44,7 @@ const st = {
   custQ: '',
   pickup: null, // working copy of pickup settings
   shop: null, // working copy of shop settings
+  addons: [], // working copy of add-on groups
 };
 
 export const catName = catNameFn;
@@ -289,6 +293,7 @@ function menuTab() {
       <div class="search sm">${icon.search}<input type="search" data-mq value="${esc(st.menuQ)}" placeholder="Search menu"></div>
       <select class="input sm" data-mcat><option value="">All categories</option>${categories().map((c) => `<option value="${esc(c.id)}" ${st.menuCat === c.id ? 'selected' : ''}>${esc(c.icon)} ${esc(c.name)}</option>`).join('')}</select>
       <button class="btn btn-ghost btn-sm" data-edit-cats>🏷️ Kategori (${categories().length})</button>
+      <a class="btn btn-ghost btn-sm" href="#/admin/addons">➕ Add-on (${(Store.settings.addonGroups || []).length})</a>
       <button class="btn btn-primary btn-sm" data-add-menu>${icon.plus} Add New Menu</button>
       ${Store.mode === 'firebase' && !Store.menu.length ? '<button class="btn btn-accent btn-sm" data-seed>Seed sample menu</button>' : ''}
     </div>
@@ -298,7 +303,7 @@ function menuTab() {
         <div class="ma-art">${itemVisual(m)}</div>
         <div class="ma-main">
           <strong>${esc(m.name)}</strong>
-          <small>${esc(catName(m.category))} • ${money(m.price)}${m.variants?.length ? ` • ${m.variants.length} variant group(s)` : ''}</small>
+          <small>${esc(catName(m.category))} • ${money(m.price)}${m.variants?.length ? ` • ${m.variants.length} variant group(s)` : ''}${addonsFor(m).length ? ` • ➕ ${addonsFor(m).map((g) => esc(g.name)).join(', ')}` : ''}</small>
           <div class="ma-tags">${m.featured ? '<span>Featured</span>' : ''}${m.popular ? '<span>Popular</span>' : ''}${m.recommended ? '<span>Recommended</span>' : ''}</div>
         </div>
         <label class="switch" title="Available / Sold Out"><input type="checkbox" data-toggle-avail="${m.id}" ${m.available ? 'checked' : ''}><span></span><em>${m.available ? 'Available' : 'Sold Out'}</em></label>
@@ -426,6 +431,7 @@ function openMenuForm(id) {
       </div>
       <label class="label">Variations <small>— one group per line, e.g. <code>Portion: Regular, Large=2</code></small></label>
       <textarea class="input mono" name="variants" rows="3" placeholder="Portion: Regular, Large=2&#10;Spice Level: Original, Extra Pedas">${esc(variantsToText(m.variants))}</textarea>
+      ${menuFormAddonsHTML(m)}
       <div class="checks">
         <label class="check"><input type="checkbox" name="available" ${m.available ? 'checked' : ''}> Available</label>
         <label class="check"><input type="checkbox" name="featured" ${m.featured ? 'checked' : ''}> Featured</label>
@@ -482,6 +488,7 @@ function openMenuForm(id) {
         recommended: f.has('recommended'),
       };
       await Store.saveMenuItem(item);
+      if ((Store.settings.addonGroups || []).length) await saveMenuAddonLinks(item, f.getAll('addon'));
       toast(existing ? 'Menu updated' : 'Menu added', 'success');
       md.close();
     });
@@ -676,7 +683,7 @@ export const admin = {
   chrome: 'admin',
   live: (topic) => {
     const tab = currentTab;
-    if (tab === 'pickup' || tab === 'settings') return topic === 'reset';
+    if (tab === 'pickup' || tab === 'settings' || tab === 'addons') return topic === 'reset';
     return true;
   },
   enter(ctx) {
@@ -686,11 +693,12 @@ export const admin = {
     if (ctx.query.s) st.orderStatus = ctx.query.s;
     st.pickup = clonePickup();
     st.shop = cloneShop();
+    st.addons = cloneAddons();
   },
   render(ctx) {
     if (!Store.isAdmin()) return deniedHTML('#/admin', 'admin');
     const tab = TABS.find((t) => t[0] === currentTab) || TABS[0];
-    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), 'monthly-report': () => monthlyReportHTML(st.mYm, st.mSrc), menu: menuTab, pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
+    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), 'monthly-report': () => monthlyReportHTML(st.mYm, st.mSrc), menu: menuTab, addons: () => addonsTabHTML(st.addons), pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
     const pending = Store.orders.filter((o) => o.status === 'Pending Confirmation').length;
     void ctx;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
@@ -786,6 +794,8 @@ export const admin = {
       const cust = t.closest('[data-cust]');
       if (cust && !t.closest('a')) return openCustomer(cust.dataset.cust);
 
+      if (currentTab === 'addons' && await addonsClick(t, st, rerender)) return;
+
       // Menu
       if (t.closest('[data-add-menu]')) return openMenuForm();
       if (t.closest('[data-edit-cats]')) return openCategoryManager();
@@ -871,6 +881,7 @@ export const admin = {
 
     root.addEventListener('input', (e) => {
       const t = e.target;
+      if (currentTab === 'addons' && addonsInput(t, st)) return;
       if (t.matches('[data-oq]')) { st.orderQ = t.value; rerender({ keepFocus: '[data-oq]' }); }
       if (t.matches('[data-mq]')) { st.menuQ = t.value; rerender({ keepFocus: '[data-mq]' }); }
       if (t.matches('[data-cq]')) { st.custQ = t.value; rerender({ keepFocus: '[data-cq]' }); }
@@ -883,6 +894,7 @@ export const admin = {
     root.addEventListener('change', async (e) => {
       const t = e.target;
       if (t.matches('[data-odate]')) { st.orderDate = t.value; rerender(); }
+      if (currentTab === 'addons' && addonsChange(t, st, rerender)) return;
       if (t.matches('[data-mmonth]')) { st.mYm = t.value && t.value <= thisMonth() ? t.value : thisMonth(); rerender(); }
       if (t.matches('[data-rdate]')) { st.repDate = t.value && t.value <= todayStr() ? t.value : todayStr(); rerender(); }
       if (t.matches('[data-sdate]')) { st.schedDate = t.value || todayStr(); rerender(); }

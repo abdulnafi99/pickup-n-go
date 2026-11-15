@@ -4,6 +4,7 @@
 // ---------------------------------------------------------------------------
 import { Store, ACTIVE_STATUSES } from '../store.js';
 import { Cart, unitPrice, defaultVariant, variantText } from '../cart.js';
+import { addonsFor, addonsHTML, toggleAddon, picked } from '../addons.js';
 import { categories, catName, catIcon } from '../categories.js';
 import { itemVisual, foodArt } from '../food-art.js';
 import { $, $$, esc, money, greeting, initials, fmtDate, fmtTime, todayStr, orderId, isValidPhone, isValidEmail, compressImage, debounce } from '../utils.js';
@@ -406,6 +407,8 @@ export const item = {
             .map((o) => `<button class="opt ${itemState.variant[g.name] === o.label ? 'on' : ''}" data-opt="${esc(o.label)}">${esc(o.label)}${o.price ? `<small>${o.price > 0 ? '+' : '−'}${money(Math.abs(o.price))}</small>` : ''}</button>`)
             .join('')}</div>`).join('')}
 
+        ${addonsHTML(m, itemState.variant, { esc, money })}
+
         <h3>Quantity</h3>
         <div class="qty-row">
           <div class="stepper big">
@@ -448,6 +451,15 @@ export const item = {
         const g = opt.closest('[data-group]');
         itemState.variant[g.dataset.group] = opt.dataset.opt;
         $$('.opt', g).forEach((b) => b.classList.toggle('on', b === opt));
+        updateTotals();
+      }
+      const ao = e.target.closest('[data-addon]');
+      if (ao) {
+        const rowEl = ao.closest('[data-addon-group]');
+        const g = addonsFor(m).find((x) => x.id === rowEl.dataset.addonGroup);
+        const err = g && toggleAddon(itemState.variant, g, ao.dataset.addon);
+        if (err) toast(err, 'error');
+        if (g) $$('[data-addon]', rowEl).forEach((b) => { const on = picked(itemState.variant, g).includes(b.dataset.addon); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); });
         updateTotals();
       }
       const q = e.target.closest('[data-qty]');

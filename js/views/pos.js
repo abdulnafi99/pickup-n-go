@@ -8,7 +8,8 @@
 import { Store } from '../store.js';
 import { categories } from '../categories.js';
 import { itemVisual } from '../food-art.js';
-import { defaultVariant, unitPrice, variantText } from '../cart.js';
+import { defaultVariant, unitPrice, variantText, normalizeVariant } from '../cart.js';
+import { addonsFor, addonsHTML, toggleAddon } from '../addons.js';
 import { $, esc, money, orderId, todayStr } from '../utils.js';
 import { icon, toast, modal, busy, confirmDialog } from '../ui.js';
 import { renderQR } from '../qr.js';
@@ -54,7 +55,8 @@ const payable = () => { const sub = ticketTotal(); return +(sub - discountInfo(s
 
 const lineKey = (menuId, variant, note = '') => `${menuId}|${JSON.stringify(variant)}|${note.trim()}`;
 /** Item has at least one variation group with a real choice. */
-const hasChoices = (m) => (m.variants || []).some((g) => (g.options || []).length > 1);
+const hasVariations = (m) => (m?.variants || []).some((g) => (g.options || []).length > 1);
+const hasChoices = (m) => !!m && (hasVariations(m) || addonsFor(m).length > 0);
 
 function ticketLines() {
   return pos.lines
@@ -73,7 +75,7 @@ function addItem(id, variant, qty = 1, note = '') {
   const m = Store.menuItem(id);
   if (!m) return;
   if (!m.available) return toast(`${m.name} sold out`, 'error');
-  const v = variant || defaultVariant(m);
+  const v = normalizeVariant(m, variant || defaultVariant(m));
   const key = lineKey(id, v, note);
   const ex = pos.lines.find((l) => l.key === key);
   if (ex) ex.qty = Math.min(99, ex.qty + qty);
@@ -92,7 +94,7 @@ function openVariantPicker(id, onDone, editKey = null) {
   const sel = { ...defaultVariant(m), ...(editing?.variant || {}) };
   let qty = editing?.qty || 1;
   let note = editing?.note || '';
-  const md = modal('', { title: editing ? 'Ubah pilihan' : 'Pilih variasi' });
+  const md = modal('', { title: editing ? 'Ubah pilihan' : hasVariations(m) ? 'Pilih variasi' : 'Pilih add-on' });
   const draw = () => {
     const price = unitPrice(m, sel);
     md.el.innerHTML = `<div class="pos-variant">
@@ -103,6 +105,7 @@ function openVariantPicker(id, onDone, editKey = null) {
           <span>${esc(o.label)}</span>${Number(o.price) ? `<small>${o.price > 0 ? '+' : '−'}${money(Math.abs(o.price))}</small>` : ''}
         </button>`).join('')}</div>
       </div>`).join('')}
+      ${addonsHTML(m, sel, { esc, money, btnClass: 'pv-opt', groupClass: 'pv-opts', titleTag: 'p' }).split('<p class="addon-title">').join('<p class="pv-label addon-title">')}
       <input class="input sm pv-note" data-pv-note value="${esc(note)}" maxlength="80" placeholder="Nota item (pilihan), cth: tanpa bawang">
       <div class="pv-foot">
         <div class="stepper big-ish"><button type="button" data-pv-dec aria-label="Kurang">${icon.minus}</button><output>${qty}</output><button type="button" data-pv-inc aria-label="Tambah">${icon.plus}</button></div>
@@ -117,6 +120,13 @@ function openVariantPicker(id, onDone, editKey = null) {
     if (opt) {
       const g = m.variants[Number(opt.dataset.g)];
       sel[g.name] = g.options[Number(opt.dataset.o)].label;
+      return draw();
+    }
+    const ao = e.target.closest('[data-addon]');
+    if (ao) {
+      const g = addonsFor(m).find((x) => x.id === ao.closest('[data-addon-group]').dataset.addonGroup);
+      const err = g && toggleAddon(sel, g, ao.dataset.addon);
+      if (err) toast(err, 'error');
       return draw();
     }
     if (e.target.closest('[data-pv-inc]')) { qty = Math.min(99, qty + 1); return draw(); }
@@ -165,7 +175,7 @@ export function posHTML() {
         <span class="pos-art">${itemVisual(m)}</span>
         <span class="pos-name">${esc(m.name)}</span>
         <span class="pos-price">${m.available ? money(m.price) : 'Sold out'}</span>
-        ${m.available && hasChoices(m) ? '<span class="pos-var-hint">Pilih variasi</span>' : ''}
+        ${m.available && hasChoices(m) ? `<span class="pos-var-hint">${hasVariations(m) ? 'Pilih variasi' : '+ Add-on'}</span>` : ''}
       </button>`;
     }).join('')}</div>` : `<div class="empty"><div class="empty-emoji">🔍</div><h3>Tiada menu</h3><p>Cuba carian atau kategori lain.</p></div>`}
   </section>
