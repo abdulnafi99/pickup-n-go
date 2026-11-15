@@ -532,16 +532,25 @@ class FirebaseBackend {
   }
 
   async uploadImage(dataUrl, path) {
-    try {
-      const ref = this.storage.ref().child(path);
-      await withTimeout(ref.put(dataUrlToBlob(dataUrl), { contentType: 'image/jpeg' }), 30000, 'storage-timeout');
-      return await ref.getDownloadURL();
-    } catch (e) {
+    const inline = () => {
       // Storage not set up (or not on the Blaze plan): keep the compressed image
       // inline in Firestore instead, as long as it fits well under the 1 MB doc limit.
-      console.warn('Firebase Storage upload failed, storing image inline:', e.code || e.message);
       if (dataUrl.length < 700000) return dataUrl;
       throw new Error('Image is too large to save. Please use a smaller photo.');
+    };
+    // After a failed upload, skip Storage for a day so customers are not kept waiting.
+    const OFF = 'png_storage_off';
+    let off = 0;
+    try { off = Number(localStorage.getItem(OFF)) || 0; } catch { /* ignore */ }
+    if (off && Date.now() - off < 24 * 3600 * 1000) return inline();
+    try {
+      const ref = this.storage.ref().child(path);
+      await withTimeout(ref.put(dataUrlToBlob(dataUrl), { contentType: 'image/jpeg' }), 15000, 'storage-timeout');
+      return await ref.getDownloadURL();
+    } catch (e) {
+      console.warn('Firebase Storage upload failed, storing image inline:', e.code || e.message);
+      try { localStorage.setItem(OFF, String(Date.now())); } catch { /* ignore */ }
+      return inline();
     }
   }
 

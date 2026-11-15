@@ -750,7 +750,7 @@ function stepPickup() {
     </div>`;
 }
 
-function duitnowBox(total, { upload = true, receipt = '' } = {}) {
+function duitnowBox(total, { upload = true, receipt = '', required = false } = {}) {
   const s = Store.settings;
   return `<div class="duitnow">
     <div class="dn-head"><span class="dn-logo">DuitNow</span><span>QR Payment</span></div>
@@ -761,9 +761,11 @@ function duitnowBox(total, { upload = true, receipt = '' } = {}) {
       <div><span>Amount</span><strong class="amt">${money(total)}</strong></div>
     </div>
     <p class="dn-instr">${esc(s.paymentInstructions)}</p>
-    ${upload ? `<label class="upload ${receipt ? 'has' : ''}">
+    ${upload ? `<label class="upload ${receipt ? 'has' : ''} ${required ? 'required' : ''}" data-receipt-box>
         <input type="file" accept="image/*" data-receipt hidden>
-        ${receipt ? `<img src="${esc(receipt)}" alt="Receipt preview"><span>Change receipt</span>` : `${icon.upload}<span><b>Upload payment receipt</b><small>JPG/PNG screenshot • you can also upload later</small></span>`}
+        ${receipt
+          ? `<img src="${esc(receipt)}" alt="Receipt preview"><span><b>✓ Proof of transfer attached</b><small>Tap to change</small></span>`
+          : `${icon.upload}<span><b>Upload proof of transfer${required ? ' *' : ''}</b><small>${required ? 'Required — screenshot of your successful DuitNow transfer (JPG/PNG)' : 'Screenshot of your successful DuitNow transfer (JPG/PNG)'}</small></span>`}
       </label>` : ''}
   </div>`;
 }
@@ -782,7 +784,7 @@ function stepPayment() {
         <input type="radio" name="pay" value="${k}" data-pay ${draft.payment === k ? 'checked' : ''}>
         <span class="rc-ico emoji">${ico}</span><span><strong>${name}</strong><small>${sub}</small></span>
       </label>`).join('')}
-      ${draft.payment === 'duitnow' ? duitnowBox(t.total, { receipt: draft.receipt }) : ''}
+      ${draft.payment === 'duitnow' ? duitnowBox(t.total, { receipt: draft.receipt, required: true }) : ''}
     </div>
     <div class="card confirm-card">
       <h3>Confirm your order</h3>
@@ -815,6 +817,11 @@ function validateStep(step) {
   }
   if (step === 4) {
     if (!Store.settings.payments[draft.payment]) throw new Error('Please choose a payment method.');
+    if (draft.payment === 'duitnow' && !draft.receipt) {
+      const err = new Error('Please upload your proof of transfer (DuitNow receipt) to confirm the order.');
+      err.needReceipt = true;
+      throw err;
+    }
   }
 }
 
@@ -842,7 +849,9 @@ export const checkout = {
         <div><small>Grand Total</small><strong>${money(t.total)}</strong></div>
         ${draft.step < 4
           ? `<button class="btn btn-primary btn-lg" data-next>Continue ${icon.chevronRight}</button>`
-          : `<button class="btn btn-accent btn-lg" data-confirm>Confirm Order ${icon.check}</button>`}
+          : draft.payment === 'duitnow' && !draft.receipt
+            ? `<button class="btn btn-accent btn-lg is-blocked" data-confirm aria-label="Upload receipt to confirm">${icon.upload} Upload receipt</button>`
+            : `<button class="btn btn-accent btn-lg" data-confirm>Confirm Order ${icon.check}</button>`}
       </div>
     </section>`;
   },
@@ -895,6 +904,12 @@ export const checkout = {
         return;
       }
       const confirmBtn = e.target.closest('[data-confirm]');
+      if (confirmBtn && draft.payment === 'duitnow' && !draft.receipt) {
+        toast('Please upload your proof of transfer (DuitNow receipt) to confirm the order.', 'error', 4000);
+        const box = $('[data-receipt-box]', root);
+        if (box) { box.scrollIntoView({ behavior: 'smooth', block: 'center' }); box.classList.remove('shake'); void box.offsetWidth; box.classList.add('shake'); }
+        return;
+      }
       if (confirmBtn) busy(confirmBtn, () => placeOrder(ctx));
     });
   },
@@ -922,8 +937,10 @@ async function placeOrder(ctx) {
   }
 
   let receipt = '';
-  if (draft.payment === 'duitnow' && draft.receipt) {
+  if (draft.payment === 'duitnow') {
+    if (!draft.receipt) throw new Error('Please upload your proof of transfer (DuitNow receipt) to confirm the order.');
     receipt = await Store.uploadImage(draft.receipt, `receipts/${u.id}/${id}.jpg`);
+    if (!receipt) throw new Error('Could not upload your receipt. Please try again.');
   }
 
   const order = {
