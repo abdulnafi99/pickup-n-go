@@ -39,6 +39,17 @@ export function normalizeVariant(item, variant = {}) {
   return out;
 }
 
+/** Cheapest and dearest price of an item across its variations (add-ons excluded). */
+export function priceRange(item) {
+  let lo = Number(item?.price) || 0;
+  let hi = lo;
+  (item?.variants || []).forEach((g) => {
+    const ps = (g.options || []).map((o) => Number(o.price) || 0);
+    if (ps.length) { lo += Math.min(...ps); hi += Math.max(...ps); }
+  });
+  return { min: Math.max(0, +lo.toFixed(2)), max: Math.max(0, +hi.toFixed(2)) };
+}
+
 export const variantText = (variant = {}) => Object.values(variant).filter(Boolean).join(', ');
 
 export const Cart = {

@@ -16,6 +16,7 @@ import { permission, enableNotifications, pushReminder } from '../push.js';
 import { posReportHTML, exportPosCSV, printPosReport } from './pos-report.js';
 import { addonsTabHTML, cloneAddons, addonsClick, addonsInput, addonsChange, menuFormAddonsHTML, saveMenuAddonLinks } from './addons-admin.js';
 import { addonsFor } from '../addons.js';
+import { priceRange } from '../cart.js';
 import { monthlyReportHTML, exportMonthCSV, printMonthReport, thisMonth, shiftMonth } from './monthly-report.js';
 
 const TABS = [
@@ -303,7 +304,7 @@ function menuTab() {
         <div class="ma-art">${itemVisual(m)}</div>
         <div class="ma-main">
           <strong>${esc(m.name)}</strong>
-          <small>${esc(catName(m.category))} • ${money(m.price)}${m.variants?.length ? ` • ${m.variants.length} variant group(s)` : ''}${addonsFor(m).length ? ` • ➕ ${addonsFor(m).map((g) => esc(g.name)).join(', ')}` : ''}</small>
+          <small>${esc(catName(m.category))} • ${(() => { const r = priceRange(m); return r.max > r.min ? `${money(r.min)}–${money(r.max).replace('RM ', '')}` : money(r.min); })()}${m.variants?.length ? ` • ${m.variants.length} variant group(s)` : ''}${addonsFor(m).length ? ` • ➕ ${addonsFor(m).map((g) => esc(g.name)).join(', ')}` : ''}</small>
           <div class="ma-tags">${m.featured ? '<span>Featured</span>' : ''}${m.popular ? '<span>Popular</span>' : ''}${m.recommended ? '<span>Recommended</span>' : ''}</div>
         </div>
         <label class="switch" title="Available / Sold Out"><input type="checkbox" data-toggle-avail="${m.id}" ${m.available ? 'checked' : ''}><span></span><em>${m.available ? 'Available' : 'Sold Out'}</em></label>

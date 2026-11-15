@@ -3,7 +3,9 @@
 // order confirmation, my orders dashboard, profile, login
 // ---------------------------------------------------------------------------
 import { Store, ACTIVE_STATUSES } from '../store.js';
-import { Cart, unitPrice, defaultVariant, variantText } from '../cart.js';
+import { Cart, unitPrice, defaultVariant, variantText, priceRange } from '../cart.js';
+
+const priceHTML = (m) => { const r = priceRange(m); return r.max > r.min ? `<small class="from">from</small> ${money(r.min)}` : money(r.min); };
 import { addonsFor, addonsHTML, toggleAddon, picked } from '../addons.js';
 import { categories, catName, catIcon } from '../categories.js';
 import { itemVisual, foodArt } from '../food-art.js';
@@ -35,7 +37,7 @@ function foodCard(m, { size = '' } = {}) {
         <h3>${esc(m.name)}</h3>
         <p>${esc(catName(m.category))}</p>
         <div class="fcard-foot">
-          <span class="price">${money(m.price)}</span>
+          <span class="price">${priceHTML(m)}</span>
           ${m.available ? '' : '<span class="tag-sold">Sold Out</span>'}
         </div>
       </div>
@@ -51,7 +53,7 @@ function rowCard(m) {
     <div class="row-main">
       <strong>${esc(m.name)}</strong>
       <small>${esc(m.desc)}</small>
-      <div class="row-meta"><span class="price">${money(m.price)}</span><span class="rating">${icon.star} ${m.rating ?? '4.5'}</span>${m.available ? '' : '<span class="tag-sold">Sold Out</span>'}</div>
+      <div class="row-meta"><span class="price">${priceHTML(m)}</span><span class="rating">${icon.star} ${m.rating ?? '4.5'}</span>${m.available ? '' : '<span class="tag-sold">Sold Out</span>'}</div>
     </div>
   </a>`;
 }
@@ -395,7 +397,7 @@ export const item = {
           <div class="chip-round"><span>${icon.clock}</span><b>${m.prepMin || 10}</b><small>min</small></div>
           <div class="chip-round"><span>${icon.people}</span><b>${String(m.serves || 1).padStart(2, '0')}</b><small>Serves</small></div>
           <div class="chip-round"><span>${icon.fire}</span><b>${m.kcal || '-'}</b><small>kcal</small></div>
-          <div class="chip-round"><span>${icon.wallet}</span><b>${Number(m.price).toFixed(0)}</b><small>RM</small></div>
+          <div class="chip-round"><span>${icon.wallet}</span><b>${priceRange(m).min.toFixed(0)}</b><small>${priceRange(m).max > priceRange(m).min ? "from RM" : "RM"}</small></div>
         </div>
 
         <h3>Description</h3>
@@ -473,7 +475,7 @@ export const item = {
         toast(on ? 'Saved to favourites' : 'Removed from favourites');
       }
       if (e.target.closest('[data-share]')) {
-        const text = `Jom cuba *${m.name}* (${money(m.price)}) di ${Store.settings.shopName}! 😋\n${location.origin}${location.pathname}#/item/${m.id}`;
+        const text = `Jom cuba *${m.name}* (${priceRange(m).max > priceRange(m).min ? "dari " : ""}${money(priceRange(m).min)}) di ${Store.settings.shopName}! 😋\n${location.origin}${location.pathname}#/item/${m.id}`;
         if (navigator.share) navigator.share({ title: m.name, text }).catch(() => {});
         else openWhatsApp(waLink('', text));
       }

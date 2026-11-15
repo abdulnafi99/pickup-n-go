@@ -1458,3 +1458,67 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
 .upload.shake { animation: shake .45s ease; box-shadow: 0 0 0 4px rgba(237, 43, 107, .18); }
 @media (prefers-reduced-motion: reduce) { .upload.shake { animation: none; } }
+
+/* ---------- POS live ticket ---------------------------------------------- */
+.pos-ticket { background: var(--card); border-radius: 22px; box-shadow: var(--shadow); display: flex; flex-direction: column; min-height: 0; }
+.pt-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; text-align: left; font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.pt-title { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; flex: 1; min-width: 0; }
+.pt-title svg { width: 18px; height: 18px; color: var(--primary); }
+.pt-title b { font-weight: 600; color: var(--muted); font-size: 13px; }
+.pt-sub { font-weight: 800; color: var(--primary); }
+.pt-chev svg { width: 18px; height: 18px; transition: transform .2s; }
+.pos-ticket:not(.open) .pt-chev svg { transform: rotate(180deg); }
+.pt-lines { list-style: none; margin: 0; padding: 0 12px; overflow-y: auto; overscroll-behavior: contain; }
+.pt-line { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 4px; border-top: 1px dashed var(--line); border-radius: 12px; transition: background .4s; }
+.pt-line.just { background: #fff4e3; animation: ptFlash 1.2s ease; }
+@keyframes ptFlash { 0% { background: #ffd89a; } 100% { background: #fff4e3; } }
+.pt-main { display: grid; gap: 1px; min-width: 0; }
+.pt-main strong { font-size: 14px; line-height: 1.25; }
+.pt-main small { font-size: 12px; line-height: 1.3; }
+.pt-var { color: var(--primary); font-weight: 600; }
+.pt-note { color: #8a5a00; }
+.pt-total { font-size: 14px; white-space: nowrap; }
+.pt-qty { display: grid; grid-template-columns: 30px 22px 30px; align-items: center; background: var(--soft); border-radius: 12px; padding: 2px; }
+.pt-qty button { width: 30px; height: 30px; border-radius: 10px; display: grid; place-items: center; background: var(--card); border: 0; color: var(--text); }
+.pt-qty button svg { width: 15px; height: 15px; }
+.pt-qty [data-t-dec] svg { color: var(--text); }
+.pt-qty output { text-align: center; font-weight: 800; font-size: 14px; }
+.pt-foot { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 14px; border-top: 2px solid var(--dark); margin: 4px 12px 0; }
+.pt-foot strong { font-size: 18px; color: var(--primary); }
+.pt-empty { padding: 18px 20px 24px; text-align: center; color: var(--muted); display: grid; justify-items: center; gap: 4px; }
+.pt-empty svg { width: 30px; height: 30px; opacity: .5; }
+.pt-empty p { margin: 0; font-weight: 700; color: var(--text); }
+
+/* Wide screens: menu left, ticket right; the dark bar keeps Pay + Clear */
+@media (min-width: 1100px) {
+  .pos-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+  .pos-ticket { position: sticky; top: 16px; max-height: calc(100vh - 140px - var(--safe-b)); }
+  .pos-ticket .pt-head { cursor: default; pointer-events: none; }
+  .pos-ticket .pt-chev { display: none; }
+  .pos-ticket .pt-lines { flex: 1; }
+}
+/* Phones/tablets: ticket docks above the dark bar and can be collapsed */
+@media (max-width: 1099px) {
+  .pos-ticket { position: fixed; z-index: 44; left: calc(12px + var(--safe-l)); right: calc(12px + var(--safe-r)); bottom: calc(84px + var(--safe-b));
+    max-width: 720px; margin: 0 auto; max-height: min(42vh, 360px); box-shadow: 0 14px 36px rgba(0, 0, 0, .22); border: 1px solid var(--line); }
+  .pos-ticket.is-empty { display: none; }
+  .pos-ticket:not(.open) .pt-lines, .pos-ticket:not(.open) .pt-foot { display: none; }
+  .pt-head { padding: 12px 14px; }
+  .pt-foot { padding: 10px 14px 12px; }
+  .pos-layout.has-items .pos { padding-bottom: calc(150px + var(--safe-b)); }
+  .pos-layout.has-items.ticket-open .pos { padding-bottom: calc(96px + min(42vh, 360px) + var(--safe-b)); }
+}
+@media (min-width: 960px) and (max-width: 1099px) { .pos-ticket { left: calc(250px + 32px + var(--safe-l)); } }
+@media (prefers-reduced-motion: reduce) { .pt-line.just { animation: none; } }
+
+/* price "from" label */
+.price small.from, .pos-price small { font-size: .72em; font-weight: 600; opacity: .75; margin-right: 2px; }
+/* POS ticket actions (wide screens only; phones keep the dark bar) */
+.pt-actions { display: none; }
+@media (min-width: 1100px) {
+  .pt-actions { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; padding: 0 12px 14px; }
+  .pt-actions .btn { min-width: 0; padding-left: 14px; padding-right: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pt-actions .btn-lg { min-height: 52px; }
+  .pos-bar { display: none; }
+  .pos-ticket { max-height: calc(100vh - 40px - var(--safe-b)); }
+}

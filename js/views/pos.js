@@ -8,7 +8,7 @@
 import { Store } from '../store.js';
 import { categories } from '../categories.js';
 import { itemVisual } from '../food-art.js';
-import { defaultVariant, unitPrice, variantText, normalizeVariant } from '../cart.js';
+import { defaultVariant, unitPrice, variantText, normalizeVariant, priceRange } from '../cart.js';
 import { addonsFor, addonsHTML, toggleAddon } from '../addons.js';
 import { $, esc, money, orderId, todayStr } from '../utils.js';
 import { icon, toast, modal, busy, confirmDialog } from '../ui.js';
@@ -27,6 +27,8 @@ const pos = {
   discType: 'none', // 'none' | 'percent' | 'fixed' | 'code'
   discValue: '',
   discCode: '',
+  ticketOpen: true, // phone: ticket dock expanded
+  lastKey: '', // highlight the line just added
 };
 
 /** Discount for the current ticket: { amount, label, error }. Never more than the subtotal. */
@@ -80,6 +82,8 @@ function addItem(id, variant, qty = 1, note = '') {
   const ex = pos.lines.find((l) => l.key === key);
   if (ex) ex.qty = Math.min(99, ex.qty + qty);
   else pos.lines.push({ key, menuId: id, qty: Math.min(99, qty), variant: v, note: note.trim() });
+  pos.lastKey = key;
+  pos.ticketOpen = true;
   if (navigator.vibrate) navigator.vibrate(15);
 }
 
@@ -148,10 +152,43 @@ function setQty(key, qty) {
 }
 
 function resetTicket() {
-  Object.assign(pos, { lines: [], name: '', phone: '', note: '', method: 'cash', cash: '', discType: 'none', discValue: '', discCode: '' });
+  Object.assign(pos, { lines: [], name: '', phone: '', note: '', method: 'cash', cash: '', discType: 'none', discValue: '', discCode: '', lastKey: '', ticketOpen: true });
 }
 
 // ---------------------------------------------------------------------------
+/** Live ticket: what the customer is buying, to check with them before paying. */
+function ticketHTML() {
+  const lines = ticketLines();
+  const count = ticketCount();
+  return `<aside class="pos-ticket ${count ? '' : 'is-empty'} ${pos.ticketOpen ? 'open' : ''}" aria-label="Tiket semasa">
+    <button type="button" class="pt-head" data-t-toggle aria-expanded="${pos.ticketOpen}">
+      <span class="pt-title">${icon.receipt} Tiket <b>${count} item</b></span>
+      <span class="pt-sub">${money(ticketTotal())}</span>
+      <span class="pt-chev">${icon.chevronDown}</span>
+    </button>
+    ${count ? `<ul class="pt-lines">${lines.map((l) => `<li class="pt-line ${l.key === pos.lastKey ? 'just' : ''}" data-key="${esc(l.key)}">
+        <div class="pt-qty">
+          <button type="button" data-t-dec aria-label="Kurang ${esc(l.item.name)}">${l.qty === 1 ? icon.trash : icon.minus}</button>
+          <output aria-label="Kuantiti">${l.qty}</output>
+          <button type="button" data-t-inc aria-label="Tambah ${esc(l.item.name)}">${icon.plus}</button>
+        </div>
+        <div class="pt-main">
+          <strong>${esc(l.item.name)}</strong>
+          ${variantText(l.variant) ? `<small class="pt-var">${esc(variantText(l.variant))}</small>` : ''}
+          ${l.note ? `<small class="pt-note">📝 ${esc(l.note)}</small>` : ''}
+          <small class="muted">${l.qty} × ${money(l.unitPrice)}${hasChoices(l.item) ? ` • <button type="button" class="link-btn" data-t-edit>Ubah</button>` : ''}</small>
+        </div>
+        <strong class="pt-total">${money(l.lineTotal)}</strong>
+      </li>`).join('')}</ul>
+      <div class="pt-foot"><span>Subtotal</span><strong>${money(ticketTotal())}</strong></div>
+      <div class="pt-actions">
+        <button type="button" class="btn btn-ghost" data-pos-clear>${icon.trash} Kosongkan</button>
+        <button type="button" class="btn btn-accent btn-lg" data-pos-checkout>${icon.wallet} Bayar ${money(ticketTotal())}</button>
+      </div>`
+    : `<div class="pt-empty">${icon.bag}<p>Tiket kosong</p><small>Tekan menu untuk tambah item. Semak senarai ini dengan pelanggan sebelum bayar.</small></div>`}
+  </aside>`;
+}
+
 export function posHTML() {
   const q = pos.q.trim().toLowerCase();
   const cats = categories();
@@ -160,7 +197,7 @@ export function posHTML() {
     .sort((a, b) => (b.available - a.available) || a.name.localeCompare(b.name));
   const qtyIn = (id) => pos.lines.filter((l) => l.menuId === id).reduce((s, l) => s + l.qty, 0);
   const count = ticketCount();
-  return `<section class="pos">
+  return `<div class="pos-layout ${count ? 'has-items' : ''} ${pos.ticketOpen ? 'ticket-open' : ''}"><section class="pos">
     <div class="pos-tools">
       <div class="search">${icon.search}<input type="search" data-pos-q value="${esc(pos.q)}" placeholder="Cari menu…" autocomplete="off"></div>
     </div>
@@ -174,11 +211,13 @@ export function posHTML() {
         ${n ? `<i class="pos-qty">${n}</i>` : ''}
         <span class="pos-art">${itemVisual(m)}</span>
         <span class="pos-name">${esc(m.name)}</span>
-        <span class="pos-price">${m.available ? money(m.price) : 'Sold out'}</span>
+        <span class="pos-price">${m.available ? (() => { const r = priceRange(m); return r.max > r.min ? `<small>dari</small> ${money(r.min)}` : money(r.min); })() : 'Sold out'}</span>
         ${m.available && hasChoices(m) ? `<span class="pos-var-hint">${hasVariations(m) ? 'Pilih variasi' : '+ Add-on'}</span>` : ''}
       </button>`;
     }).join('')}</div>` : `<div class="empty"><div class="empty-emoji">🔍</div><h3>Tiada menu</h3><p>Cuba carian atau kategori lain.</p></div>`}
   </section>
+  ${ticketHTML()}
+  </div>
   <div class="pos-bar ${count ? '' : 'empty'}">
     <div class="pos-bar-sum"><small>${count} item</small><strong>${money(ticketTotal())}</strong></div>
     ${count ? `<button class="btn btn-ghost btn-sm" data-pos-clear>${icon.trash}<span class="hide-sm">Kosongkan</span></button>` : ''}
@@ -430,6 +469,11 @@ function showDone(r) {
 
 // ---------------------------------------------------------------------------
 export function bindPOS(root, ctx) {
+  const just = $('.pt-line.just', root);
+  if (just) {
+    const list = just.parentElement;
+    list.scrollTop = Math.max(0, just.offsetTop - list.offsetTop - list.clientHeight + just.offsetHeight + 8);
+  }
   const input = $('[data-pos-q]', root);
   input?.addEventListener('input', () => { pos.q = input.value; ctx.refresh({ keepFocus: '[data-pos-q]' }); });
   root.addEventListener('click', async (e) => {
@@ -443,6 +487,16 @@ export function bindPOS(root, ctx) {
     }
     const cat = e.target.closest('[data-pos-cat]');
     if (cat) { pos.cat = cat.dataset.posCat; return ctx.refresh(); }
+    if (e.target.closest('[data-t-toggle]')) { pos.ticketOpen = !pos.ticketOpen; return ctx.refresh(); }
+    const tl = e.target.closest('.pt-line');
+    if (tl) {
+      const line = pos.lines.find((x) => x.key === tl.dataset.key);
+      if (!line) return;
+      if (e.target.closest('[data-t-inc]')) { setQty(line.key, line.qty + 1); pos.lastKey = line.key; return ctx.refresh(); }
+      if (e.target.closest('[data-t-dec]')) { setQty(line.key, line.qty - 1); pos.lastKey = ''; return ctx.refresh(); }
+      if (e.target.closest('[data-t-edit]')) return openVariantPicker(line.menuId, () => ctx.refresh(), line.key);
+      return;
+    }
     if (e.target.closest('[data-pos-clear]')) {
       if (await confirmDialog('Kosongkan tiket semasa?', { ok: 'Kosongkan', danger: true })) { resetTicket(); ctx.refresh(); }
       return;
