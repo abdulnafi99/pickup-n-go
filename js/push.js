@@ -262,8 +262,8 @@ export function startOrderWatcher() {
     if (Store.isStaff()) {
       Store.orders.forEach((o) => {
         if (!knownAll.has(o.id) && o.status === 'Pending Confirmation' && o.source !== 'pos' && !myOrderIds().includes(o.id)) {
-          const title = 'Pesanan baru! 🛍️';
-          const body = `${o.customer.name} • ${money(o.total)}\nPickup ${fmtDate(o.pickupDate, false)} ${fmtTime(o.pickupTime)} • ${o.id}`;
+          const title = o.table ? `Pesanan meja ${o.table}! 🍽️` : 'Pesanan baru! 🛍️';
+          const body = o.table ? `🍽️ MEJA ${o.table} • ${o.customer.name} • ${money(o.total)}\n${o.id}` : `${o.customer.name} • ${money(o.total)}\nPickup ${fmtDate(o.pickupDate, false)} ${fmtTime(o.pickupTime)} • ${o.id}`;
           if (document.visibilityState === 'visible') toast(`Pesanan baru: ${o.id}`, 'success', 5000);
           showLocal(title, body, `${location.pathname}#/staff`, `new-${o.id}`);
         }

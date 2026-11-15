@@ -16,6 +16,7 @@ import { permission, enableNotifications, pushReminder } from '../push.js';
 import { posReportHTML, exportPosCSV, printPosReport } from './pos-report.js';
 import { addonsTabHTML, cloneAddons, addonsClick, addonsInput, addonsChange, menuFormAddonsHTML, saveMenuAddonLinks } from './addons-admin.js';
 import { addonsFor } from '../addons.js';
+import { tablesTabHTML, cloneTables, mountTables, tablesClick, tablesInput, tablesChange } from './tables-admin.js';
 import { priceRange } from '../cart.js';
 import { monthlyReportHTML, exportMonthCSV, printMonthReport, thisMonth, shiftMonth } from './monthly-report.js';
 
@@ -27,6 +28,7 @@ const TABS = [
   ['monthly-report', 'Laporan Bulanan', icon.calendar, 'Operasi'],
   ['menu', 'Menu', icon.grid, 'Kedai'],
   ['addons', 'Add-on', icon.plus, 'Kedai'],
+  ['tables', 'Table QR', icon.qr, 'Kedai'],
   ['pickup', 'Pickup Settings', icon.clock, 'Kedai'],
   ['settings', 'Shop & Payment', icon.settings, 'Kedai'],
   ['customers', 'Customers', icon.people, 'Pelanggan'],
@@ -46,6 +48,7 @@ const st = {
   pickup: null, // working copy of pickup settings
   shop: null, // working copy of shop settings
   addons: [], // working copy of add-on groups
+  tables: null, // working copy of table settings
 };
 
 export const catName = catNameFn;
@@ -208,7 +211,7 @@ function dashboardTab() {
       </div>
       <div class="card">
         <div class="card-head"><h3>Today’s Upcoming Pickups</h3><a class="link" href="#/admin/schedule">Schedule</a></div>
-        ${upcoming.length ? upcoming.map((o) => `<button class="mini-order" data-open="${o.id}"><span class="sched-time">${fmtTime(o.pickupTime)}</span><span class="sched-main"><strong>${esc(o.customer.name)}</strong><small>${esc(o.id)} • ${money(o.total)}</small></span>${badge(o.status)}</button>`).join('') : '<p class="muted">No active pickups for today.</p>'}
+        ${upcoming.length ? upcoming.map((o) => `<button class="mini-order" data-open="${o.id}"><span class="sched-time">${fmtTime(o.pickupTime)}</span><span class="sched-main"><strong>${o.table ? `🍽️ Meja ${esc(o.table)} • ` : ''}${esc(o.customer.name)}</strong><small>${esc(o.id)} • ${money(o.total)}</small></span>${badge(o.status)}</button>`).join('') : '<p class="muted">No active pickups for today.</p>'}
       </div>
       <div class="card">
         <div class="card-head"><h3>Recent Orders</h3><a class="link" href="#/admin/orders">View all</a></div>
@@ -242,7 +245,7 @@ function ordersTab() {
           ${list.length ? list.map((o) => `<tr data-open="${o.id}">
             <td data-l="Order"><strong>${esc(o.id)}</strong><small>${o.items.reduce((s, i) => s + i.qty, 0)} items</small></td>
             <td data-l="Customer">${esc(o.customer.name)}<small>${esc(o.customer.phone)}</small></td>
-            <td data-l="Pickup">${fmtDate(o.pickupDate, false)}<small>${fmtTime(o.pickupTime)}</small></td>
+            <td data-l="Pickup">${o.table ? `<span class="tbl-pill">🍽️ Meja ${esc(o.table)}</span>` : fmtDate(o.pickupDate, false)}<small>${fmtTime(o.pickupTime)}</small></td>
             <td data-l="Total"><strong>${money(o.total)}</strong></td>
             <td data-l="Payment">${PAY_LABEL[o.payment.method]}<br>${badge(o.payment.status)}</td>
             <td data-l="Status">${badge(o.status)}</td>
@@ -684,7 +687,7 @@ export const admin = {
   chrome: 'admin',
   live: (topic) => {
     const tab = currentTab;
-    if (tab === 'pickup' || tab === 'settings' || tab === 'addons') return topic === 'reset';
+    if (tab === 'pickup' || tab === 'settings' || tab === 'addons' || tab === 'tables') return topic === 'reset';
     return true;
   },
   enter(ctx) {
@@ -695,11 +698,12 @@ export const admin = {
     st.pickup = clonePickup();
     st.shop = cloneShop();
     st.addons = cloneAddons();
+    st.tables = cloneTables();
   },
   render(ctx) {
     if (!Store.isAdmin()) return deniedHTML('#/admin', 'admin');
     const tab = TABS.find((t) => t[0] === currentTab) || TABS[0];
-    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), 'monthly-report': () => monthlyReportHTML(st.mYm, st.mSrc), menu: menuTab, addons: () => addonsTabHTML(st.addons), pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
+    const body = { dashboard: dashboardTab, orders: ordersTab, schedule: scheduleTab, 'pos-report': () => posReportHTML(st.repDate), 'monthly-report': () => monthlyReportHTML(st.mYm, st.mSrc), menu: menuTab, addons: () => addonsTabHTML(st.addons), tables: () => tablesTabHTML(st.tables), pickup: pickupTab, customers: customersTab, settings: settingsTab }[tab[0]]();
     const pending = Store.orders.filter((o) => o.status === 'Pending Confirmation').length;
     void ctx;
     const modeBadge = Store.mode === 'firebase' ? '<b class="mode-on">● Firebase (live)</b>' : '<b class="mode-demo">● Demo mode</b>';
@@ -754,6 +758,7 @@ export const admin = {
     if (!Store.isAdmin()) return;
     const rerender = (opts) => ctx.refresh(opts);
     bindDrawer(root, adminDrawer);
+    if (currentTab === 'tables') mountTables(root);
 
     root.addEventListener('click', async (e) => {
       const t = e.target;
@@ -796,6 +801,7 @@ export const admin = {
       if (cust && !t.closest('a')) return openCustomer(cust.dataset.cust);
 
       if (currentTab === 'addons' && await addonsClick(t, st, rerender)) return;
+      if (currentTab === 'tables' && await tablesClick(t, st, rerender)) return;
 
       // Menu
       if (t.closest('[data-add-menu]')) return openMenuForm();
@@ -883,6 +889,7 @@ export const admin = {
     root.addEventListener('input', (e) => {
       const t = e.target;
       if (currentTab === 'addons' && addonsInput(t, st)) return;
+      if (currentTab === 'tables' && tablesInput(t, st)) return;
       if (t.matches('[data-oq]')) { st.orderQ = t.value; rerender({ keepFocus: '[data-oq]' }); }
       if (t.matches('[data-mq]')) { st.menuQ = t.value; rerender({ keepFocus: '[data-mq]' }); }
       if (t.matches('[data-cq]')) { st.custQ = t.value; rerender({ keepFocus: '[data-cq]' }); }
@@ -896,6 +903,7 @@ export const admin = {
       const t = e.target;
       if (t.matches('[data-odate]')) { st.orderDate = t.value; rerender(); }
       if (currentTab === 'addons' && addonsChange(t, st, rerender)) return;
+      if (currentTab === 'tables' && tablesChange(t, st, rerender)) return;
       if (t.matches('[data-mmonth]')) { st.mYm = t.value && t.value <= thisMonth() ? t.value : thisMonth(); rerender(); }
       if (t.matches('[data-rdate]')) { st.repDate = t.value && t.value <= todayStr() ? t.value : todayStr(); rerender(); }
       if (t.matches('[data-sdate]')) { st.schedDate = t.value || todayStr(); rerender(); }

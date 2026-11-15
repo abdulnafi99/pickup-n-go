@@ -16,6 +16,7 @@ import { waLink, orderToShopMessage, shareMessage, contactShopLink, openWhatsApp
 import { renderQR, orderQRText } from '../qr.js';
 import { itemsHTML, totalsHTML, trackerHTML, pickupInfoHTML, customerHTML, paymentHTML, downloadReceipt, viewImage } from './shared.js';
 import { installState, promptInstall } from '../pwa.js';
+import { currentTable, scannedTable, setTable, clearTable, tableSettings, tableBarHTML, openNow, isTableOrder } from '../table.js';
 import { notifySupport, permission, savedSubscription, enableNotifications, disableNotifications, sendTestNotification, rememberMyOrder, myOrderIds } from '../push.js';
 
 const isFav = (id) => (Store.user.favourites || []).includes(id);
@@ -191,6 +192,36 @@ export function logoSVG() {
 // ---------------------------------------------------------------------------
 // HOME
 // ---------------------------------------------------------------------------
+export const table = {
+  chrome: 'none',
+  live: true,
+  enter(ctx) {
+    try { localStorage.setItem('png_welcomed', '1'); } catch { /* ignore */ }
+    setTable(decodeURIComponent(ctx.params[0] || ''));
+  },
+  render() {
+    const name = scannedTable();
+    const valid = currentTable();
+    const s = Store.settings;
+    const open = openNow();
+    return `<section class="page table-landing">
+      <div class="tl-card">
+        <span class="logo-mark lg">${logoSVG()}</span>
+        <p class="tl-welcome">Welcome to ${esc(s.shopName)}</p>
+        ${valid
+          ? `<div class="tl-table"><small>You’re at</small><strong>Meja ${esc(valid)}</strong></div>
+             <p class="tl-text">Order from your phone — no need to queue at the counter.${tableSettings().serve === 'counter' ? ' We’ll call your name when it’s ready.' : ' We’ll bring it to your table.'}</p>
+             ${open ? '' : '<div class="alert alert-warn">We’re closed right now. You can still browse the menu.</div>'}
+             <a class="btn btn-accent btn-lg btn-block" href="#/menu">See menu & order ${icon.chevronRight}</a>
+             <ol class="tl-steps"><li><b>1</b>Pick your drinks</li><li><b>2</b>Pay at counter or DuitNow</li><li><b>3</b>${tableSettings().serve === 'counter' ? 'Collect when called' : 'We serve to your table'}</li></ol>`
+          : `<div class="tl-table bad"><small>Table</small><strong>${esc(name || '—')}</strong></div>
+             <p class="tl-text">This table QR isn’t active. Please ask our staff — or order for pickup instead.</p>
+             <a class="btn btn-primary btn-lg btn-block" href="#/menu" data-table-clear>Browse menu</a>`}
+      </div>
+    </section>`;
+  },
+};
+
 export const home = {
   chrome: 'customer',
   live: true,
@@ -212,6 +243,7 @@ export const home = {
         <span class="brand-name">PICK UP <em>N</em> GO</span>
         <a href="#/profile" class="avatar" aria-label="Profile">${esc(initials(u.name))}</a>
       </div>
+      ${tableBarHTML()}
       <div class="hello">
         <p>${greeting()} 👋</p>
         <h1>${esc(u.name ? u.name.split(' ')[0] : 'Coffee Lover')}</h1>
@@ -318,6 +350,7 @@ export const catalog = {
         <h1>Our Menu</h1>
         <a href="#/cart" class="icon-btn" aria-label="Cart">${icon.bag}</a>
       </div>
+      ${tableBarHTML()}
       <form class="search" data-search role="search">
         ${icon.search}
         <input type="search" name="q" value="${esc(q)}" placeholder="Search latte, mocha, matcha…" aria-label="Search menu" autocomplete="off">
@@ -558,6 +591,7 @@ export const cart = {
     const hasUnavailable = lines.some((l) => l.unavailable);
     return `<section class="page cart">
       <div class="page-head"><a href="#/menu" class="icon-btn" aria-label="Back">${icon.back}</a><h1>My Cart</h1><button class="icon-btn" data-clear-cart aria-label="Clear cart">${icon.trash}</button></div>
+      ${tableBarHTML()}
       ${hasUnavailable ? '<div class="alert alert-warn">Some items are no longer available and will not be included. Please remove them.</div>' : ''}
       <ul class="cart-list">
         ${lines.map((l) => `<li class="cart-line ${l.unavailable ? 'unavailable' : ''}" data-key="${esc(l.key)}">
@@ -671,6 +705,7 @@ function saveDraft() {
 }
 
 const STEPS = ['Review', 'Details', 'Pickup', 'Payment'];
+const stepNames = () => (currentTable() ? ['Review', 'Details', 'Table', 'Payment'] : STEPS);
 
 function stepReview() {
   const lines = Cart.lines().filter((l) => !l.unavailable);
@@ -688,7 +723,7 @@ function stepDetails() {
     <h3>Customer Information</h3>
     <label class="label" for="c-name">Full name *</label>
     <input id="c-name" class="input" data-f="name" value="${esc(draft.name)}" autocomplete="name" placeholder="e.g. Aisyah Rahman" required>
-    <label class="label" for="c-phone">Phone number (WhatsApp) *</label>
+    <label class="label" for="c-phone">Phone number (WhatsApp) ${currentTable() ? '<small>(optional for dine-in)</small>' : '*'}</label>
     <input id="c-phone" class="input" data-f="phone" value="${esc(draft.phone)}" inputmode="tel" autocomplete="tel" placeholder="e.g. 012-345 6789" required>
     <label class="label" for="c-email">Email <small>(optional)</small></label>
     <input id="c-email" class="input" data-f="email" value="${esc(draft.email)}" type="email" autocomplete="email" placeholder="you@email.com">
@@ -696,8 +731,30 @@ function stepDetails() {
   </div>`;
 }
 
+function stepTable(t) {
+  const serve = tableSettings().serve;
+  const open = openNow();
+  return `<div class="card form table-step">
+      <div class="ts-hero">
+        <span class="ts-ico">🍽️</span>
+        <div><small>Dine-in order</small><strong>Meja ${esc(t)}</strong></div>
+      </div>
+      <p class="ts-text">${serve === 'counter'
+        ? 'Your order goes straight to the barista. We’ll call your name when it’s ready — collect it at the counter.'
+        : 'Your order goes straight to the barista and will be served to <b>your table</b>.'}</p>
+      <div class="kv">
+        <div><span>Date</span><strong>Today • ${fmtDate(todayStr(), false)}</strong></div>
+        <div><span>Prepared</span><strong>Right away</strong></div>
+      </div>
+      ${open ? '' : '<div class="alert alert-warn">The shop is closed right now, so table orders can’t be placed. Please check our opening hours.</div>'}
+      <button type="button" class="link-btn ts-leave" data-table-clear>Not at a table? Switch to pickup</button>
+    </div>`;
+}
+
 function stepPickup() {
   const s = Store.settings;
+  const tbl = currentTable();
+  if (tbl) return stepTable(tbl);
   let body = '';
   if (draft.orderType === 'immediate') {
     const slot = immediateSlot();
@@ -776,7 +833,7 @@ function stepPayment() {
   const s = Store.settings;
   const t = Cart.totals();
   const methods = [
-    ['cash', '💵', 'Cash on Pickup', 'Pay at the counter when you collect'],
+    currentTable() ? ['cash', '💵', 'Pay at Counter', 'Pay cash or card at the counter'] : ['cash', '💵', 'Cash on Pickup', 'Pay at the counter when you collect'],
     ['duitnow', '📱', 'DuitNow QR', 'Scan & pay with any bank / e-wallet'],
     ['online', '💳', 'Online Payment', Store.mode === 'demo' ? 'FPX / Card (demo simulation)' : 'FPX / Card — awaiting gateway confirmation'],
   ].filter(([k]) => s.payments[k]);
@@ -793,8 +850,10 @@ function stepPayment() {
       <div class="kv">
         <div><span>Name</span><strong>${esc(draft.name)}</strong></div>
         <div><span>Phone</span><strong>${esc(draft.phone)}</strong></div>
-        <div><span>Pickup</span><strong>${draft.date ? `${fmtDate(draft.date, false)} • ${fmtTime(draft.time)}` : '-'}</strong></div>
-        <div><span>Location</span><strong>${esc(locationName(draft.location))}</strong></div>
+        ${currentTable()
+          ? `<div><span>Table</span><strong>🍽️ Meja ${esc(currentTable())} • Dine-in</strong></div>`
+          : `<div><span>Pickup</span><strong>${draft.date ? `${fmtDate(draft.date, false)} • ${fmtTime(draft.time)}` : '-'}</strong></div>
+        <div><span>Location</span><strong>${esc(locationName(draft.location))}</strong></div>`}
         <div><span>Items</span><strong>${t.count}</strong></div>
       </div>
       ${totalsHTML(t, { promo: t.promo?.code })}
@@ -810,12 +869,17 @@ function validateStep(step) {
   }
   if (step === 2) {
     if (draft.name.trim().length < 2) throw new Error('Please enter your name.');
-    if (!isValidPhone(draft.phone)) throw new Error('Please enter a valid Malaysian phone number (e.g. 012-3456789).');
+    const phoneOptional = !!currentTable(); // dine-in: name is enough, phone optional
+    if (!(phoneOptional && !draft.phone.trim()) && !isValidPhone(draft.phone)) throw new Error('Please enter a valid Malaysian phone number (e.g. 012-3456789).');
     if (!isValidEmail(draft.email.trim())) throw new Error('Please enter a valid email or leave it empty.');
   }
   if (step === 3) {
     if (!draft.location) throw new Error('Please choose a pickup location.');
-    assertSlotBookable(draft.date, draft.time);
+    if (currentTable()) {
+      if (!openNow()) throw new Error('The shop is closed right now — table orders can’t be placed.');
+    } else {
+      assertSlotBookable(draft.date, draft.time);
+    }
   }
   if (step === 4) {
     if (!Store.settings.payments[draft.payment]) throw new Error('Please choose a payment method.');
@@ -829,7 +893,7 @@ function validateStep(step) {
 
 export const checkout = {
   chrome: 'none',
-  live: (topic) => ['orders', 'slots', 'settings', 'sync'].includes(topic) && draft?.step === 3,
+  live: (topic) => ['orders', 'slots', 'settings', 'sync'].includes(topic) && draft?.step === 3 && !currentTable(),
   enter() {
     loadDraft();
     if (!Cart.items.length) draft.step = 1;
@@ -845,7 +909,7 @@ export const checkout = {
     const body = [stepReview, stepDetails, stepPickup, stepPayment][draft.step - 1]();
     return `<section class="page checkout">
       <div class="page-head"><button class="icon-btn" data-prev aria-label="Back">${icon.back}</button><h1>Checkout</h1><span class="step-count">${draft.step}/4</span></div>
-      <ol class="stepper-bar">${STEPS.map((s, i) => `<li class="${i + 1 < draft.step ? 'done' : i + 1 === draft.step ? 'current' : ''}"><span>${i + 1 < draft.step ? icon.check : i + 1}</span>${s}</li>`).join('')}</ol>
+      <ol class="stepper-bar">${stepNames().map((s, i) => `<li class="${i + 1 < draft.step ? 'done' : i + 1 === draft.step ? 'current' : ''}"><span>${i + 1 < draft.step ? icon.check : i + 1}</span>${s}</li>`).join('')}</ol>
       <div class="step-body">${body}</div>
       <div class="sticky-cta">
         <div><small>Grand Total</small><strong>${money(t.total)}</strong></div>
@@ -945,6 +1009,7 @@ async function placeOrder(ctx) {
     if (!receipt) throw new Error('Could not upload your receipt. Please try again.');
   }
 
+  const tbl = currentTable();
   const order = {
     id,
     createdAt: now,
@@ -956,17 +1021,18 @@ async function placeOrder(ctx) {
     discount: t.discount,
     promoCode: t.promo?.code || '',
     total: t.total,
-    pickupDate: draft.date,
-    pickupTime: draft.time,
-    location: draft.location,
-    orderType: draft.orderType,
+    pickupDate: tbl ? todayStr() : draft.date,
+    pickupTime: tbl ? new Date(now).toTimeString().slice(0, 5) : draft.time,
+    location: tbl ? (Store.settings.locations?.[0]?.id || draft.location) : draft.location,
+    orderType: tbl ? 'dine-in' : draft.orderType,
+    ...(tbl ? { source: 'table', table: tbl } : {}),
     payment: { method: draft.payment, status: payStatus, receipt },
     status: 'Pending Confirmation',
     history: [{ status: 'Pending Confirmation', at: now }],
     pushSub: permission() === 'granted' ? savedSubscription() : null,
   };
 
-  await Store.createOrder(order, () => assertSlotBookable(order.pickupDate, order.pickupTime));
+  await Store.createOrder(order, () => { if (!tbl) assertSlotBookable(order.pickupDate, order.pickupTime); });
   rememberMyOrder(order.id);
 
   if (draft.saveProfile) {
@@ -1032,7 +1098,7 @@ export const order = {
       ${isNew ? `<div class="success-hero">
           <div class="success-check">${icon.check}</div>
           <h2>Order Placed!</h2>
-          <p>Thank you, ${esc(o.customer.name.split(' ')[0])}. We’ll have it ready for pickup.</p>
+          <p>Thank you, ${esc(o.customer.name.split(' ')[0])}. ${isTableOrder(o) ? (tableSettings().serve === 'counter' ? `We’re preparing it now — we’ll call you to collect at the counter (Meja ${esc(o.table)}).` : `We’re preparing it now and will serve it to <b>Meja ${esc(o.table)}</b>.`) : 'We’ll have it ready for pickup.'}</p>
           <a class="btn btn-wa btn-block btn-lg" href="${waLink(Store.settings.whatsapp, orderToShopMessage(o))}" target="_blank" rel="noopener">${icon.whatsapp} Send Order to Shop via WhatsApp</a>
         </div>` : ''}
 
@@ -1041,7 +1107,7 @@ export const order = {
           <div><small>Order ID</small><h2 class="oid">${esc(o.id)}</h2>${badge(o.status)}</div>
           <button class="ticket-qr" data-qr-big aria-label="Show QR"><div data-qr></div></button>
         </div>
-        <p class="ticket-hint">${icon.qr} Show this QR at the counter when you pick up.</p>
+        <p class="ticket-hint">${icon.qr} ${isTableOrder(o) ? 'Show this QR if our staff asks for your order.' : 'Show this QR at the counter when you pick up.'}</p>
         <div class="ticket-cut"></div>
         ${trackerHTML(o)}
       </div>

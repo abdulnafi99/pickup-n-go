@@ -60,11 +60,20 @@ export function trackerHTML(order) {
 }
 
 export function pickupInfoHTML(o) {
+  if (o.source === 'table' || o.orderType === 'dine-in') {
+    return `<div class="info-grid">
+    <div class="info wide dine"><span class="info-ico">🍽️</span><div><small>Dine-in</small><strong>Meja ${esc(o.table || '-')}</strong></div></div>
+    <div class="info"><span class="info-ico">${icon.calendar}</span><div><small>Date</small><strong>${fmtDate(o.pickupDate)}</strong></div></div>
+    <div class="info"><span class="info-ico">${icon.clock}</span><div><small>Ordered at</small><strong>${fmtTime(o.pickupTime)}</strong></div></div>
+    <div class="info"><span class="info-ico">${icon.bag}</span><div><small>Order Type</small><strong>Dine-in (table)</strong></div></div>
+    <div class="info"><span class="info-ico">${icon.wallet}</span><div><small>Payment</small><strong>${o.payment.method === 'cash' ? 'Pay at Counter' : PAY_LABEL[o.payment.method]}</strong></div></div>
+  </div>`;
+  }
   return `<div class="info-grid">
     <div class="info"><span class="info-ico">${icon.calendar}</span><div><small>Pickup Date</small><strong>${fmtDate(o.pickupDate)}</strong></div></div>
     <div class="info"><span class="info-ico">${icon.clock}</span><div><small>Pickup Time</small><strong>${fmtTime(o.pickupTime)}</strong></div></div>
     <div class="info wide"><span class="info-ico">${icon.pin}</span><div><small>Pickup Location</small><strong>${esc(locationName(o.location))}</strong></div></div>
-    <div class="info"><span class="info-ico">${icon.bag}</span><div><small>Order Type</small><strong>${o.orderType === 'walk-in' ? 'Walk-in (POS)' : o.orderType === 'immediate' ? 'Immediate' : 'Scheduled'}</strong></div></div>
+    <div class="info"><span class="info-ico">${icon.bag}</span><div><small>Order Type</small><strong>${o.orderType === 'walk-in' ? 'Walk-in (POS)' : o.orderType === 'dine-in' ? 'Dine-in (table)' : o.orderType === 'immediate' ? 'Immediate' : 'Scheduled'}</strong></div></div>
     <div class="info"><span class="info-ico">${icon.wallet}</span><div><small>Payment</small><strong>${PAY_LABEL[o.payment.method]}</strong></div></div>
   </div>`;
 }
@@ -137,8 +146,7 @@ export async function downloadReceipt(o) {
   const kv = [
     ['Customer', o.customer.name],
     ['Phone', o.customer.phone],
-    ['Pickup', `${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`],
-    ['Location', locationName(o.location)],
+    ...((o.source === 'table' || o.orderType === 'dine-in') ? [['Table', `Meja ${o.table || '-'} (Dine-in)`], ['Ordered', `${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`]] : [['Pickup', `${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`], ['Location', locationName(o.location)]]),
     ['Payment', `${PAY_LABEL[o.payment.method]} (${o.payment.status})`],
   ];
   kv.forEach(([k, v]) => {
@@ -207,7 +215,7 @@ export async function printReceipt(o) {
     <hr>
     <p><b>Order:</b> ${esc(o.id)}<br><b>Date:</b> ${fmtDateTime(o.createdAt)}<br>
     <b>Customer:</b> ${esc(o.customer.name)} (${esc(o.customer.phone)})<br>
-    <b>Pickup:</b> ${fmtDate(o.pickupDate)} ${fmtTime(o.pickupTime)}<br>
+    ${(o.source === 'table' || o.orderType === 'dine-in') ? `<b>MEJA ${esc(o.table || '-')}</b> (Dine-in)<br>` : `<b>Pickup:</b> ${fmtDate(o.pickupDate)} ${fmtTime(o.pickupTime)}<br>`}
     <b>Payment:</b> ${PAY_LABEL[o.payment.method]} — ${esc(o.payment.status)}<br>
     <b>Status:</b> ${esc(o.status)}</p>
     <hr>

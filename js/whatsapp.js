@@ -5,6 +5,8 @@ import { Store } from './store.js';
 import { money, fmtDate, fmtTime, waNumber } from './utils.js';
 import { variantText } from './cart.js';
 
+const isDine = (o) => o.source === 'table' || o.orderType === 'dine-in';
+
 export const PAY_LABEL = { cash: 'Cash on Pickup', duitnow: 'DuitNow QR', online: 'Online Payment' };
 
 export function waLink(number, text) {
@@ -41,9 +43,9 @@ export function orderToShopMessage(o) {
     `Telefon: ${o.customer.phone}`,
     o.customer.email ? `Emel: ${o.customer.email}` : null,
     ``,
-    `📅 Pickup: *${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}*`,
-    `📍 Lokasi: ${locationName(o.location)}`,
-    `⏱️ Jenis: ${o.orderType === 'immediate' ? 'Segera (Immediate)' : 'Berjadual (Scheduled)'}`,
+    ...(isDine(o)
+      ? [`🍽️ *MEJA ${o.table || '-'}* — Dine-in`, `⏰ Dipesan: ${fmtTime(o.pickupTime)}`]
+      : [`📅 Pickup: *${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}*`, `📍 Lokasi: ${locationName(o.location)}`, `⏱️ Jenis: ${o.orderType === 'immediate' ? 'Segera (Immediate)' : 'Berjadual (Scheduled)'}`]),
     ``,
     `*Item:*`,
     itemLines(o),
@@ -63,8 +65,7 @@ export function shareMessage(o) {
   return [
     `🍽️ Pesanan saya di *${Store.settings.shopName}*`,
     `No. Pesanan: *${o.id}*`,
-    `Pickup: ${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`,
-    `Lokasi: ${locationName(o.location)}`,
+    ...(isDine(o) ? [`🍽️ Meja ${o.table || '-'} (Dine-in)`] : [`Pickup: ${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`, `Lokasi: ${locationName(o.location)}`]),
     ``,
     itemLines(o),
     ``,
@@ -82,7 +83,7 @@ export function reminderMessage(o) {
     ``,
     `Peringatan pickup dari *${Store.settings.shopName}*:`,
     `No. Pesanan: *${o.id}*`,
-    `📅 ${fmtDate(o.pickupDate)} • *${fmtTime(o.pickupTime)}*`,
+    isDine(o) ? `🍽️ Meja ${o.table || '-'} (Dine-in)` : `📅 ${fmtDate(o.pickupDate)} • *${fmtTime(o.pickupTime)}*`,
     `📍 ${locationName(o.location)}`,
     `Jumlah: ${money(o.total)} (${PAY_LABEL[o.payment.method]} — ${o.payment.status})`,
     ``,
@@ -104,11 +105,10 @@ export function statusMessage(o) {
   return [
     `Hai ${o.customer.name},`,
     ``,
-    lines[o.status] || `Status: ${o.status}`,
+    (isDine(o) && o.status === 'Ready for Pickup' ? `Pesanan anda *SEDIA* 🎉 ${Store.settings.tables?.serve === 'counter' ? 'Sila ambil di kaunter.' : 'Kami akan hantar ke meja anda.'}` : lines[o.status]) || `Status: ${o.status}`,
     ``,
     `No. Pesanan: *${o.id}*`,
-    `Pickup: ${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`,
-    `📍 ${locationName(o.location)}`,
+    ...(isDine(o) ? [`🍽️ Meja ${o.table || '-'} (Dine-in)`] : [`Pickup: ${fmtDate(o.pickupDate)} • ${fmtTime(o.pickupTime)}`, `📍 ${locationName(o.location)}`]),
     ``,
     `— ${Store.settings.shopName}`,
   ].join('\n');

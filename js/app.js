@@ -15,6 +15,7 @@ import { initCustomerDrawer, syncCustomerDrawer } from './views/customer-drawer.
 const routes = [
   [/^(home)?$/, C.home],
   [/^welcome$/, C.welcome],
+  [/^table\/([^/]+)$/, C.table],
   [/^menu$/, C.catalog],
   [/^item\/([^/]+)$/, C.item],
   [/^cart$/, C.cart],
@@ -142,6 +143,7 @@ async function boot() {
   }
 
   Store.on(onDataChange);
+  window.addEventListener('table:change', () => { if (current) render(false); });
   // Notifications: push to the customer when staff change status, plus local alerts.
   Store.onStatusChanged = (order) => { if (Store.isStaff()) pushOrderStatus(order); };
   startOrderWatcher();

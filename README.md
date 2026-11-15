@@ -67,6 +67,13 @@ Tip: buka customer app dalam satu tab dan `#/admin` atau `#/staff` dalam tab lai
 - Pelanggan nampak pilihan add-on di halaman menu, POS nampak dalam pemilih variasi (menu tanpa variasi tunjuk “+ Add-on”). Harga dikira automatik; pilihan disimpan bersama variasi item jadi muncul di troli, mesej WhatsApp, resit, senarai staff dan admin.
 - Disimpan dalam `settings.addonGroups` (lihat `js/addons.js`).
 
+**Table QR / dine-in (Admin → Table QR)**
+- Hidupkan *Table ordering*, jana meja 1–N (atau nama sendiri seperti A1, Outdoor 1) dan pilih **Hantar ke meja** atau **Ambil di kaunter**. Disimpan dalam `settings.tables`.
+- Setiap meja ada QR ke `…/#/table/<nama>`. Kad QR boleh dimuat turun (PNG 1200×1600 dengan logo, “Scan to order”, MEJA x) atau **Print all (A4)** — 4 kad setiap muka surat.
+- Pelanggan imbas QR → halaman “You’re at Meja 3” → menu dengan bar **Meja 3** (butang *Tukar* untuk keluar). Di checkout, langkah Pickup diganti dengan langkah **Table**: tiada tarikh/slot, telefon pilihan, tunai jadi *Pay at Counter*, DuitNow tetap wajib resit. Pesanan ditolak jika kedai tutup (ikut waktu operasi).
+- Pesanan disimpan sebagai `source: 'table'`, `orderType: 'dine-in'`, `table: '3'` dan **tidak mengambil slot pickup**. Staff nampak lencana **MEJA 3** pada kad, mesej WhatsApp, resit, notifikasi pesanan baru dan senarai pesanan admin.
+- Meja diingati di peranti selama 4 jam (`js/table.js`).
+
 **POS Kaunter (Staff → POS Walk-in)**
 - Jualan walk-in: pilih menu (carian + kategori), ubah kuantiti, nama/telefon/nota pilihan.
 - Menu dengan variasi (cth. Portion, Spice Level, Panas/Sejuk, Add-on) membuka pemilih variasi: pilih pilihan (harga dikemas kini termasuk tambahan/potongan), kuantiti dan nota item. Variasi berbeza = baris tiket berasingan; butang *Ubah* di skrin bayaran untuk menukar variasi sesuatu baris.
@@ -104,6 +111,7 @@ js/config.js          FIREBASE_CONFIG (null = demo mode)
 js/store.js           Data layer: LocalBackend & FirebaseBackend
 js/cart.js            Cart, harga variasi, promo
 js/addons.js          Senarai add-on dikongsi (harga, pilihan, pautan menu)
+js/table.js           Pesanan meja (dine-in) melalui QR
 js/pickup.js          Peraturan slot pickup & waktu operasi
 js/whatsapp.js        Mesej WhatsApp auto-jana
 js/qr.js              Jana & imbas QR
@@ -113,7 +121,7 @@ js/push.js            Web Push + notifikasi tempatan
 api/push.js           Fungsi serverless Vercel untuk hantar push (web-push)
 js/food-art.js        Ilustrasi makanan SVG (offline)
 js/sample-data.js     Menu, kategori, tetapan & akaun demo
-js/views/             customer.js, admin.js, staff.js, pos.js, pos-report.js, monthly-report.js, addons-admin.js, shared.js
+js/views/             customer.js, admin.js, staff.js, pos.js, pos-report.js, monthly-report.js, addons-admin.js, tables-admin.js, shared.js
 js/vendor/            qrcode-generator (MIT), jsQR (Apache-2.0)
 firestore.rules  storage.rules  firebase.json
 ```

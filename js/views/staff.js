@@ -28,17 +28,18 @@ function staffCard(o) {
   const unpaid = o.payment.status !== 'Verified';
   return `<article class="staff-card st-${o.status.split(' ')[0].toLowerCase()}" data-id="${o.id}">
     <header>
-      <div><strong class="oid">${esc(o.id)}</strong><small>${esc(o.customer.name)} • ${esc(o.customer.phone)}</small></div>
+      <div><strong class="oid">${esc(o.id)}</strong><small>${esc(o.customer.name)}${o.customer.phone ? ` • ${esc(o.customer.phone)}` : ''}</small></div>
       ${badge(o.status)}
     </header>
+    ${o.table ? `<div class="tbl-badge">🍽️ MEJA ${esc(o.table)} <small>Dine-in</small></div>` : ''}
     <ul class="staff-items">${o.items.map((it) => `<li><b>${it.qty}×</b> ${esc(it.name)}${variantText(it.variant) ? ` <small>(${esc(variantText(it.variant))})</small>` : ''}${it.note ? `<em>📝 ${esc(it.note)}</em>` : ''}</li>`).join('')}</ul>
     ${o.specialRequest ? `<p class="special">🗒️ ${esc(o.specialRequest)}</p>` : ''}
-    <div class="staff-pay"><span>${PAY_LABEL[o.payment.method]}</span>${badge(o.payment.status)}<strong>${money(o.total)}</strong></div>
+    <div class="staff-pay"><span>${o.table && o.payment.method === 'cash' ? 'Pay at Counter' : PAY_LABEL[o.payment.method]}</span>${badge(o.payment.status)}<strong>${money(o.total)}</strong></div>
     ${unpaid && o.payment.method === 'cash' ? `<p class="collect">💵 Collect ${money(o.total)} cash</p>` : ''}
     <footer>
       ${o.status === 'Pending Confirmation' ? `<button class="btn btn-primary btn-sm" data-status="Order Accepted">${icon.check} Accept</button>` : ''}
       ${o.status === 'Ready for Pickup' ? `<button class="btn btn-accent btn-sm" data-complete>✅ Complete</button>` : nextStatusBtn(o).replace('btn btn-accent', 'btn btn-accent btn-sm')}
-      <a class="btn btn-wa btn-sm" href="${waLink(o.customer.phone, reminderMessage(o))}" target="_blank" rel="noopener" title="Send pickup reminder">${icon.whatsapp}</a>
+      ${o.customer.phone ? `<a class="btn btn-wa btn-sm" href="${waLink(o.customer.phone, reminderMessage(o))}" target="_blank" rel="noopener" title="Send pickup reminder">${icon.whatsapp}</a>` : ''}
       ${o.pushSub && ACTIVE_STATUSES.includes(o.status) ? '<button class="btn btn-ghost btn-sm" data-push title="Push pickup reminder" aria-label="Push pickup reminder">🔔</button>' : ''}
       <button class="btn btn-ghost btn-sm" data-details>Details</button>
     </footer>
@@ -74,7 +75,7 @@ function openVerify(id) {
       <div class="kv">
         <div><span>Customer</span><strong>${esc(o.customer.name)}</strong></div>
         <div><span>Phone</span><strong>${esc(o.customer.phone)}</strong></div>
-        <div><span>Pickup</span><strong>${fmtDate(o.pickupDate, false)} • ${fmtTime(o.pickupTime)} ${today ? '' : '<em class="warn">(not today)</em>'}</strong></div>
+        ${o.table ? `<div><span>Table</span><strong>🍽️ Meja ${esc(o.table)} (Dine-in)</strong></div>` : `<div><span>Pickup</span><strong>${fmtDate(o.pickupDate, false)} • ${fmtTime(o.pickupTime)} ${today ? '' : '<em class="warn">(not today)</em>'}</strong></div>`}
         <div><span>Payment</span><strong>${PAY_LABEL[o.payment.method]} ${badge(o.payment.status)}</strong></div>
         <div><span>Status</span>${badge(o.status)}</div>
       </div>

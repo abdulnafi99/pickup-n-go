@@ -151,16 +151,19 @@ export function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
+const scriptLoads = new Map(); // one shared promise per script, so parallel callers wait for the same load
 export function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+  if (scriptLoads.has(src)) return scriptLoads.get(src);
+  const p = new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = src;
     s.async = true;
     s.onload = resolve;
-    s.onerror = () => reject(new Error('Failed to load ' + src));
+    s.onerror = () => { scriptLoads.delete(src); s.remove(); reject(new Error('Failed to load ' + src)); };
     document.head.appendChild(s);
   });
+  scriptLoads.set(src, p);
+  return p;
 }
 
 export function initials(name = '') {
