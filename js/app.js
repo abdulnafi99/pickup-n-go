@@ -57,13 +57,17 @@ function jumpTo(y) {
   root.style.scrollBehavior = prev;
 }
 
+let lastNavCount = null;
+
 function navHTML(path) {
   const active = (p) => (path === p || (p === 'home' && path === '') ? 'on' : '');
   const count = Cart.count;
+  const bump = lastNavCount !== null && count > lastNavCount; // pop the badge only when it goes up
+  lastNavCount = count;
   return `<div class="nav-pill">
     <a href="#/home" class="${active('home')}" aria-label="Home">${icon.home}<span>Home</span></a>
     <a href="#/menu" class="${active('menu')}" aria-label="Menu">${icon.grid}<span>Menu</span></a>
-    <a href="#/cart" class="nav-cart ${active('cart')}" aria-label="Cart, ${count} items">${icon.bag}${count ? `<i class="cart-badge">${count > 99 ? '99+' : count}</i>` : ''}</a>
+    <a href="#/cart" class="nav-cart ${active('cart')}" aria-label="Cart, ${count} items">${icon.bag}${count ? `<i class="cart-badge${bump ? ' bump' : ''}">${count > 99 ? '99+' : count}</i>` : ''}</a>
     <a href="#/orders" class="${active('orders')}" aria-label="My orders">${icon.receipt}<span>Orders</span></a>
     <button type="button" class="${active('profile')}" data-cdrawer-open aria-controls="customer-drawer" aria-expanded="false" aria-label="Open menu">${icon.menu}<span>More</span></button>
   </div>`;
