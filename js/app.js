@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 import { Store } from './store.js';
 import { Cart } from './cart.js';
-import { $ } from './utils.js';
+import { $, money } from './utils.js';
 import { icon, toast, closeAllModals } from './ui.js';
 import { initPWA } from './pwa.js';
 import { startOrderWatcher, pushOrderStatus, refreshSubscription } from './push.js';
@@ -69,6 +69,53 @@ function navHTML(path) {
   </div>`;
 }
 
+// ---------------------------------------------------------------------------
+// Floating cart bar — always visible while the cart has items, on browsing
+// pages (Home, Menu, Item, Table). Hidden on Cart/Checkout and wherever a
+// page already shows its own sticky call-to-action.
+// ---------------------------------------------------------------------------
+const FCART_VIEWS = new Set([C.home, C.catalog, C.item, C.table]);
+const chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+let fcartEl = null;
+let lastCount = null;
+
+function updateFloatingCart() {
+  if (!fcartEl) {
+    fcartEl = document.createElement('a');
+    fcartEl.href = '#/cart';
+    fcartEl.className = 'fcart';
+    document.body.appendChild(fcartEl);
+  }
+  const count = Number(Cart.count) || 0;
+  const show = !!current && count > 0 && FCART_VIEWS.has(current.view) && !viewEl.querySelector('.sticky-cta');
+  const body = document.body;
+  body.classList.toggle('fcart-show', show);
+  body.classList.toggle('fcart-nav', !navEl.hidden);
+  fcartEl.setAttribute('aria-hidden', show ? 'false' : 'true');
+  fcartEl.tabIndex = show ? 0 : -1;
+
+  if (count > 0) {
+    const total = money(Cart.totals().total);
+    const label = `${count} item${count === 1 ? '' : 's'}`;
+    fcartEl.setAttribute('aria-label', `View cart, ${label}, ${total}`);
+    fcartEl.innerHTML = `
+      <span class="fcart-ico">${icon.bag}<i>${count > 99 ? '99+' : count}</i></span>
+      <span class="fcart-main">
+        <small>Your cart · ${label}</small>
+        <strong>${total}</strong>
+      </span>
+      <span class="fcart-go">View cart ${chevron}</span>`;
+  }
+
+  // Little "pop" whenever an item is added.
+  if (show && lastCount !== null && count > lastCount) {
+    fcartEl.classList.remove('bump');
+    void fcartEl.offsetWidth; // restart the animation
+    fcartEl.classList.add('bump');
+  }
+  lastCount = count;
+}
+
 function updateNav() {
   if (!current) return;
   const show = current.view.chrome === 'customer';
@@ -76,6 +123,7 @@ function updateNav() {
   document.body.dataset.chrome = current.view.chrome;
   if (show) navEl.innerHTML = navHTML(current.ctx.path);
   syncCustomerDrawer(current.ctx.path, current.view.chrome);
+  updateFloatingCart();
 }
 
 /** Render the current route (fresh=true on navigation). */
