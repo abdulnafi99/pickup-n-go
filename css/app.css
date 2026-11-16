@@ -1347,36 +1347,3 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .rep-items .pop-main { display: grid; gap: 4px; min-width: 0; }
 .rep-items .pop-main strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rep-iv { display: grid; text-a
-
-         /* ---------- Floating cart bar ------------------------------------------- */
-.fcart {
-  position: fixed; z-index: 48; left: calc(14px + var(--safe-l)); right: calc(14px + var(--safe-r)); max-width: 440px; margin: 0 auto;
-  bottom: calc(14px + var(--safe-b));
-  display: flex; align-items: center; gap: 12px; padding: 8px 8px 8px 10px; border-radius: 22px;
-  background: var(--primary); color: #fff; box-shadow: 0 16px 36px rgba(36, 75, 56, .35);
-  transform: translateY(calc(100% + 40px)); opacity: 0; pointer-events: none; visibility: hidden;
-  transition: transform .35s var(--ease), opacity .25s, visibility 0s linear .35s;
-}
-/* Sit above the floating bottom nav when it is shown */
-body.fcart-nav .fcart { bottom: calc(max(12px, calc(var(--safe-b) + 4px)) + var(--nav-h) + 30px); }
-body.fcart-show .fcart { transform: none; opacity: 1; pointer-events: auto; visibility: visible; transition: transform .35s var(--ease), opacity .25s, visibility 0s; }
-.fcart-ico { position: relative; width: 44px; height: 44px; border-radius: 14px; background: rgba(255, 255, 255, .14); color: var(--accent); display: grid; place-items: center; flex-shrink: 0; }
-.fcart-ico svg { width: 22px; height: 22px; }
-.fcart-ico i { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--accent); color: var(--dark); font-style: normal; font-size: 11px; font-weight: 800; display: grid; place-items: center; border: 2px solid var(--primary); }
-.fcart-main { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.fcart-main small { font-size: 12px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fcart-main strong { font-size: 16px; font-weight: 800; color: var(--accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.fcart-go { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0 14px 0 16px; border-radius: 16px; background: var(--accent); color: var(--dark); font-weight: 700; font-size: 14px; white-space: nowrap; transition: transform .15s; }
-.fcart-go svg { width: 16px; height: 16px; }
-.fcart:active .fcart-go { transform: scale(.95); }
-.fcart.bump .fcart-ico { animation: pop .45s var(--ease); }
-.fcart.bump .fcart-ico i { animation: pop .45s .1s var(--ease); }
-/* Keep page content (and the item page's add button) clear of the bar */
-body.fcart-show .page { padding-bottom: calc(var(--nav-h) + 120px + var(--safe-b)); }
-body.fcart-show:not(.fcart-nav) .page { padding-bottom: calc(110px + var(--safe-b)); }
-body.fcart-show .detail-panel { padding-bottom: calc(110px + var(--safe-b)); }
-@media (orientation: landscape) and (max-height: 500px) {
-  .fcart { padding: 6px 6px 6px 8px; }
-  .fcart-ico, .fcart-go { min-height: 38px; height: 38px; }
-  .fcart-ico { width: 38px; }
-}
