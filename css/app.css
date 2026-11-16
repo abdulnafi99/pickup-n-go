@@ -1347,3 +1347,8 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .rep-items .pop-main { display: grid; gap: 4px; min-width: 0; }
 .rep-items .pop-main strong { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rep-iv { display: grid; text-a
+
+         /* Leaving a page (e.g. item → Home after Add to Cart): soft fade out.
+   Opacity only, so fixed bars inside the page don't jump. */
+.view-root.leaving { opacity: 0; transition: opacity .28s ease; pointer-events: none; }
+.view-root.enter { animation-duration: .34s; }
