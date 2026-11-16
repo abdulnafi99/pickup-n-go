@@ -44,6 +44,19 @@ function go(hash) {
   else location.hash = hash;
 }
 
+/**
+ * Jump to a scroll position with no animation. The stylesheet sets
+ * `html { scroll-behavior: smooth }` for in-page links, which would otherwise
+ * make every route change / live refresh visibly glide.
+ */
+function jumpTo(y) {
+  const root = document.documentElement;
+  const prev = root.style.scrollBehavior;
+  root.style.scrollBehavior = 'auto';
+  window.scrollTo(0, y);
+  root.style.scrollBehavior = prev;
+}
+
 function navHTML(path) {
   const active = (p) => (path === p || (p === 'home' && path === '') ? 'on' : '');
   const count = Cart.count;
@@ -52,7 +65,7 @@ function navHTML(path) {
     <a href="#/menu" class="${active('menu')}" aria-label="Menu">${icon.grid}<span>Menu</span></a>
     <a href="#/cart" class="nav-cart ${active('cart')}" aria-label="Cart, ${count} items">${icon.bag}${count ? `<i class="cart-badge">${count > 99 ? '99+' : count}</i>` : ''}</a>
     <a href="#/orders" class="${active('orders')}" aria-label="My orders">${icon.receipt}<span>Orders</span></a>
-    <button type="button" class="${active('profile')}" data-cdrawer-open aria-controls="customer-drawer" aria-expanded="false" aria-label="Buka menu">${icon.menu}<span>Lagi</span></button>
+    <button type="button" class="${active('profile')}" data-cdrawer-open aria-controls="customer-drawer" aria-expanded="false" aria-label="Open menu">${icon.menu}<span>More</span></button>
   </div>`;
 }
 
@@ -83,6 +96,7 @@ function render(fresh = true, opts = {}) {
     view.enter?.(ctx);
   }
   current = { view, ctx };
+  pendingTopic = null; // this render covers any deferred refresh
 
   const scrollY = window.scrollY;
   const focusSel = opts.keepFocus;
@@ -100,8 +114,7 @@ function render(fresh = true, opts = {}) {
   view.mount?.(root, ctx);
   updateNav();
 
-  if (fresh) window.scrollTo(0, 0);
-  else window.scrollTo(0, scrollY);
+  jumpTo(fresh ? 0 : scrollY);
   if (focusSel) {
     const el = root.querySelector(focusSel);
     if (el) {
@@ -117,14 +130,24 @@ function isTyping() {
 }
 
 let pendingTopic = null;
+
+/**
+ * Re-render in place, unless the user is typing — then defer until the field
+ * loses focus so we never wipe what they're entering.
+ */
+function safeRefresh(topic = 'refresh') {
+  if (!current) return;
+  if (isTyping()) { pendingTopic = topic; return; }
+  render(false);
+}
+
 function onDataChange(topic) {
   if (!current) return;
   if (topic === 'auth' || topic === 'reset') return render(false);
   const live = current.view.live;
   const wants = typeof live === 'function' ? live(topic) : !!live;
   if (!wants) return;
-  if (isTyping()) { pendingTopic = topic; return; } // don't wipe what the user is typing
-  render(false);
+  safeRefresh(topic);
 }
 
 async function boot() {
@@ -139,16 +162,16 @@ async function boot() {
   }
   if (Store.initError && !sessionStorage.getItem('png_fb_warned')) {
     sessionStorage.setItem('png_fb_warned', '1');
-    toast('Firebase belum siap — app berjalan dalam mod demo buat sementara.', 'error', 6000);
+    toast('Couldn’t connect to the server — running in demo mode for now.', 'error', 6000);
   }
 
   Store.on(onDataChange);
-  window.addEventListener('table:change', () => { if (current) render(false); });
+  window.addEventListener('table:change', () => safeRefresh('table'));
   // Notifications: push to the customer when staff change status, plus local alerts.
   Store.onStatusChanged = (order) => { if (Store.isStaff()) pushOrderStatus(order); };
   startOrderWatcher();
   refreshSubscription();
-  window.addEventListener('notify:change', () => render(false));
+  window.addEventListener('notify:change', () => safeRefresh('notify'));
   // Notification clicks from the service worker
   navigator.serviceWorker?.addEventListener('message', (e) => {
     if (e.data?.type === 'navigate' && e.data.url) {
@@ -158,16 +181,16 @@ async function boot() {
   });
   window.addEventListener('cart:change', () => {
     updateNav();
-    if (current?.view === C.cart || current?.view === C.checkout) {
-      if (!isTyping()) render(false);
-    }
+    if (current?.view === C.cart || current?.view === C.checkout) safeRefresh('cart');
   });
   document.addEventListener('focusout', () => {
     setTimeout(() => {
-      if (pendingTopic && !isTyping()) { pendingTopic = null; render(false); }
+      if (pendingTopic && !isTyping()) render(false);
     }, 150);
   });
-  window.addEventListener('pwa:install-change', () => { if (current?.view === C.home || current?.view === C.profile) render(false); });
+  window.addEventListener('pwa:install-change', () => {
+    if (current?.view === C.home || current?.view === C.profile) safeRefresh('pwa');
+  });
   window.addEventListener('hashchange', () => render(true));
 
   render(true);
