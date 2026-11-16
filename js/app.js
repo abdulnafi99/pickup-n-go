@@ -176,6 +176,24 @@ function render(fresh = true, opts = {}) {
   }
 }
 
+/**
+ * Fade the current page out, then navigate. Waits a moment first so the
+ * customer sees the "added" confirmation. Cancels itself if they move on.
+ */
+let leaving = false;
+function leaveTo(hash, fromView, { wait = 450, fade = 280 } = {}) {
+  if (leaving) return;
+  leaving = true;
+  setTimeout(() => {
+    if (current?.view !== fromView) { leaving = false; return; } // customer already left
+    viewEl.firstElementChild?.classList.add('leaving');
+    setTimeout(() => {
+      leaving = false;
+      if (current?.view === fromView) go(hash);
+    }, fade);
+  }, wait);
+}
+
 function isTyping() {
   const a = document.activeElement;
   return a && viewEl.contains(a) && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'file'].includes(a.type)) || a.tagName === 'SELECT');
@@ -231,8 +249,14 @@ async function boot() {
       go(hash);
     }
   });
+  let lastCartCount = Number(Cart.count) || 0;
   window.addEventListener('cart:change', () => {
+    const count = Number(Cart.count) || 0;
+    const added = count > lastCartCount;
+    lastCartCount = count;
     updateNav();
+    // Added from an item page → glide back to Home (cart bar shows the total there).
+    if (added && current?.view === C.item) return leaveTo('#/home', C.item);
     if (current?.view === C.cart || current?.view === C.checkout) safeRefresh('cart');
   });
   document.addEventListener('focusout', () => {
