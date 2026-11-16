@@ -3,17 +3,22 @@
 //
 // 1. Web Push (real push, works when the app is closed):
 //    - The browser subscribes with the VAPID public key served by /api/push.
-//    - The subscription is saved on the customer's profile and on each order
-//      they place (`order.pushSub`).
-//    - When staff/admin change an order's status, the app calls POST /api/push,
-//      which sends the notification through the browser's push service.
+//    - The subscription is saved on the user's profile (users/{uid}.pushSub)
+//      and, for customers, on each order they place (`order.pushSub`).
+//    - Customers: when staff/admin change an order's status, the app calls
+//      POST /api/push, which sends the notification to the customer.
+//    - Staff/admin: when a customer places an order, the customer's app calls
+//      POST /api/push { kind: 'new-order', orderId }. The server looks the order
+//      up in Firestore and pushes a "New order" alert to every staff/admin
+//      device that turned alerts on — even if their app is closed.
 //
-// 2. Local notifications (fallback, and new-order alerts for staff):
-//    - While the app is open (any tab, including background tabs), changes to
-//      the customer's orders and new incoming orders for staff are shown with
-//      ServiceWorkerRegistration.showNotification().
-//    - Notifications use a tag of `<orderId>-<status>` so a push and a local
-//      notification for the same event replace each other instead of doubling.
+// 2. Local notifications (while the app is open, incl. background tabs):
+//    - Changes to the customer's orders, and new incoming orders for staff,
+//      are shown with ServiceWorkerRegistration.showNotification(). Staff also
+//      hear a short chime.
+//    - Notifications use a tag (`<orderId>-<status>` / `new-<orderId>`) so a
+//      push and a local notification for the same event replace each other
+//      instead of doubling.
 // ---------------------------------------------------------------------------
 import { Store, ACTIVE_STATUSES } from './store.js';
 import { toast } from './ui.js';
@@ -22,6 +27,7 @@ import { money, fmtTime, fmtDate } from './utils.js';
 const API = '/api/push';
 const SUB_KEY = 'png_push_sub';
 const MY_ORDERS_KEY = 'png_my_orders';
+const STAFF_SUB_KEY = 'png_push_staff'; // "<uid>|<endpoint>" last saved to a staff profile
 
 const readJSON = (k, f) => {
   try { return JSON.parse(localStorage.getItem(k)) ?? f; } catch { return f; }
@@ -51,6 +57,8 @@ export function rememberMyOrder(id) {
   if (!ids.includes(id)) {
     ids.unshift(id);
     localStorage.setItem(MY_ORDERS_KEY, JSON.stringify(ids.slice(0, 200)));
+    // Called right after the order is saved — let the shop know.
+    notifyStaffNewOrder(id);
   }
 }
 export const myOrderIds = () => readJSON(MY_ORDERS_KEY, []);
@@ -87,6 +95,7 @@ export async function enableNotifications() {
       ? 'Notifications are blocked. Allow them in your browser/app settings, then try again.'
       : 'Notification permission was not granted.');
   }
+  unlockSound();
 
   let pushOk = false;
   if (sup.push) {
@@ -115,19 +124,27 @@ export async function disableNotifications() {
     await sub?.unsubscribe();
   } catch { /* ignore */ }
   localStorage.removeItem(SUB_KEY);
+  localStorage.removeItem(STAFF_SUB_KEY);
   await attachSubscription(null);
   window.dispatchEvent(new CustomEvent('notify:change'));
 }
 
 /** Save the subscription to the profile and to this device's active orders. */
 async function attachSubscription(sub) {
-  try { await Store.saveProfile({ pushSub: sub }); } catch { /* staff accounts etc. */ }
+  try {
+    await Store.saveProfile({ pushSub: sub });
+    if (Store.isStaff() && sub) localStorage.setItem(STAFF_SUB_KEY, `${Store.user.id}|${sub.endpoint}`);
+  } catch { /* offline etc. */ }
   const mine = new Set(myOrderIds());
   const targets = Store.orders.filter((o) => mine.has(o.id) && ACTIVE_STATUSES.includes(o.status));
   await Promise.all(targets.map((o) => Store.updateOrder(o.id, { pushSub: sub }).catch(() => {})));
 }
 
-/** Keep the browser subscription and our saved copy in sync (keys can rotate). */
+/**
+ * Keep the browser subscription and our saved copy in sync (keys can rotate).
+ * For staff/admin, also make sure the server knows this device, so new-order
+ * pushes reach it (e.g. after logging in on a device that already allowed alerts).
+ */
 export async function refreshSubscription() {
   if (!('serviceWorker' in navigator) || permission() !== 'granted') return;
   try {
@@ -138,6 +155,13 @@ export async function refreshSubscription() {
       localStorage.setItem(SUB_KEY, JSON.stringify(sub.toJSON()));
     } else if (!sub && saved) {
       localStorage.removeItem(SUB_KEY);
+    }
+    if (sub && Store.isStaff()) {
+      const key = `${Store.user.id}|${sub.endpoint}`;
+      if (localStorage.getItem(STAFF_SUB_KEY) !== key) {
+        await Store.saveProfile({ pushSub: sub.toJSON() });
+        localStorage.setItem(STAFF_SUB_KEY, key);
+      }
     }
   } catch { /* ignore */ }
 }
@@ -171,6 +195,22 @@ export async function pushOrderStatus(order) {
   }
 }
 
+/**
+ * Called on the customer's device right after an order is placed: asks the
+ * server to alert every staff/admin device. The server reads the order from
+ * Firestore itself and only alerts once per order. Fire-and-forget.
+ */
+export async function notifyStaffNewOrder(orderId) {
+  if (Store.mode !== 'firebase') return false; // demo mode: staff tabs get local alerts
+  try {
+    await postPush({ kind: 'new-order', orderId, url: `${location.pathname}#/staff` });
+    return true;
+  } catch (e) {
+    console.warn('staff new-order push', e.message);
+    return false;
+  }
+}
+
 export async function pushReminder(order) {
   if (!order?.pushSub) throw new Error('This customer has not enabled notifications.');
   try {
@@ -199,9 +239,9 @@ export async function sendTestNotification() {
 // ---------------------------------------------------------------------------
 // Local notifications
 // ---------------------------------------------------------------------------
-export async function showLocal(title, body, url, tag) {
+export async function showLocal(title, body, url, tag, extra = {}) {
   if (permission() !== 'granted') return false;
-  const opts = { body, tag, renotify: true, icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', data: { url }, vibrate: [120, 60, 120] };
+  const opts = { body, tag, renotify: true, icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', data: { url }, vibrate: [120, 60, 120], ...extra };
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     if (reg) { await reg.showNotification(title, opts); return true; }
@@ -211,6 +251,40 @@ export async function showLocal(title, body, url, tag) {
     n.onclick = () => { window.focus(); if (url) location.href = url; n.close(); };
     return true;
   } catch { return false; }
+}
+
+// ---------------------------------------------------------------------------
+// New-order chime for staff (Web Audio, no sound file needed). Browsers only
+// allow audio after the user has tapped the page once, so we unlock on the
+// first tap.
+// ---------------------------------------------------------------------------
+let audioCtx = null;
+function unlockSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    audioCtx ||= new Ctx();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch { /* ignore */ }
+}
+function chime() {
+  try {
+    unlockSound();
+    if (!audioCtx || audioCtx.state !== 'running') return;
+    const t0 = audioCtx.currentTime;
+    [[880, 0], [1320, 0.18], [1760, 0.36]].forEach(([freq, at]) => {
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, t0 + at);
+      gain.gain.exponentialRampToValueAtTime(0.22, t0 + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.4);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start(t0 + at);
+      osc.stop(t0 + at + 0.45);
+    });
+  } catch { /* ignore */ }
 }
 
 export const STATUS_TEXT = {
@@ -240,8 +314,15 @@ function snapshotMine() {
 export function startOrderWatcher() {
   known = snapshotMine();
   knownAll = new Set(Store.orders.map((o) => o.id));
+  document.addEventListener('pointerdown', unlockSound, { once: true, capture: true });
 
   Store.on((topic) => {
+    // Staff just logged in: register this device for new-order pushes.
+    if (topic === 'auth') {
+      refreshSubscription();
+      knownAll = null; // the staff order list loads next — take a fresh snapshot, don't alert for old orders
+      return;
+    }
     if (!['orders', 'sync'].includes(topic)) return;
 
     // Customer: status changes on my orders
@@ -259,15 +340,21 @@ export function startOrderWatcher() {
     known = now;
 
     // Staff/admin: brand-new orders
-    if (Store.isStaff()) {
+    if (knownAll && Store.isStaff()) {
+      let fresh = 0;
       Store.orders.forEach((o) => {
-        if (!knownAll.has(o.id) && o.status === 'Pending Confirmation' && o.source !== 'pos' && !myOrderIds().includes(o.id)) {
-          const title = o.table ? `Pesanan meja ${o.table}! 🍽️` : 'Pesanan baru! 🛍️';
-          const body = o.table ? `🍽️ MEJA ${o.table} • ${o.customer.name} • ${money(o.total)}\n${o.id}` : `${o.customer.name} • ${money(o.total)}\nPickup ${fmtDate(o.pickupDate, false)} ${fmtTime(o.pickupTime)} • ${o.id}`;
-          if (document.visibilityState === 'visible') toast(`Pesanan baru: ${o.id}`, 'success', 5000);
-          showLocal(title, body, `${location.pathname}#/staff`, `new-${o.id}`);
+        const recent = Date.now() - (o.createdAt || 0) < 10 * 60 * 1000; // skip old orders that just synced in
+        if (!knownAll.has(o.id) && recent && o.status === 'Pending Confirmation' && o.source !== 'pos' && !myOrderIds().includes(o.id)) {
+          fresh++;
+          const title = o.table ? `Table ${o.table} order! 🍽️` : 'New order! 🛍️';
+          const body = o.table
+            ? `🍽️ TABLE ${o.table} • ${o.customer.name} • ${money(o.total)}\n${o.id}`
+            : `${o.customer.name} • ${money(o.total)}\nPickup ${fmtDate(o.pickupDate, false)} ${fmtTime(o.pickupTime)} • ${o.id}`;
+          if (document.visibilityState === 'visible') toast(`New order: ${o.id}`, 'success', 5000);
+          showLocal(title, body, `${location.pathname}#/staff`, `new-${o.id}`, { requireInteraction: true, vibrate: [200, 100, 200, 100, 200] });
         }
       });
+      if (fresh) chime();
     }
     knownAll = new Set(Store.orders.map((o) => o.id));
   });
