@@ -3,8 +3,11 @@
   "version": "1.1.0",
   "private": true,
   "description": "PICK UP N GO — Smart Food Pre-Order & Pickup PWA (vanilla HTML/CSS/JS). Dependencies are only used by the /api/push serverless function.",
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "dependencies": {
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "firebase-admin": "^12.7.0"
   }
 }
