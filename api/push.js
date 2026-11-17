@@ -110,7 +110,7 @@ async function send(subscription, payload) {
 let firebase = null;
 function getFirebase() {
   if (firebase) return firebase;
-  const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT || process.env.FIREBASE_SERVICE_ACCOUNT2;
   if (!raw) throw Object.assign(new Error('Staff alerts are not configured (FIREBASE_SERVICE_ACCOUNT missing).'), { status: 503 });
   let admin;
   try {

@@ -39,7 +39,7 @@ function getApps() {
     throw Object.assign(new Error('firebase-admin is not installed.'), { status: 503 });
   }
   const parse = (name) => {
-    const raw = process.env[name];
+    const raw = process.env[name] || process.env[`${name}2`]; // accept e.g. FIREBASE_SERVICE_ACCOUNT2 too
     if (!raw) throw Object.assign(new Error(`Loyalty is not configured (${name} missing).`), { status: 503 });
     const cred = JSON.parse(raw);
     if (typeof cred.private_key === 'string') cred.private_key = cred.private_key.replace(/\\n/g, '\n');
