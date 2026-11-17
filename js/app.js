@@ -12,6 +12,7 @@ import { admin } from './views/admin.js';
 import { staff } from './views/staff.js';
 import { initCustomerDrawer, syncCustomerDrawer } from './views/customer-drawer.js';
 import { startAutoPrint } from './printer.js';
+import { awardLoyalty } from './loyalty.js';
 
 const routes = [
   [/^(home)?$/, C.home],
@@ -239,7 +240,12 @@ async function boot() {
   Store.on(onDataChange);
   window.addEventListener('table:change', () => safeRefresh('table'));
   // Notifications: push to the customer when staff change status, plus local alerts.
-  Store.onStatusChanged = (order) => { if (Store.isStaff()) pushOrderStatus(order); };
+  Store.onStatusChanged = (order) => {
+    if (!Store.isStaff()) return;
+    pushOrderStatus(order);
+    // Completed → +1 stamp / +10 points in the Selagi Coffee loyalty app.
+    if (order?.status === 'Completed') awardLoyalty(order);
+  };
   startOrderWatcher();
   refreshSubscription();
   // Bluetooth receipt printer on the counter tablet: auto-print new orders.
