@@ -11,6 +11,7 @@ import * as C from './views/customer.js';
 import { admin } from './views/admin.js';
 import { staff } from './views/staff.js';
 import { initCustomerDrawer, syncCustomerDrawer } from './views/customer-drawer.js';
+import { startAutoPrint } from './printer.js';
 
 const routes = [
   [/^(home)?$/, C.home],
@@ -241,6 +242,9 @@ async function boot() {
   Store.onStatusChanged = (order) => { if (Store.isStaff()) pushOrderStatus(order); };
   startOrderWatcher();
   refreshSubscription();
+  // Bluetooth receipt printer on the counter tablet: auto-print new orders.
+  startAutoPrint();
+  window.addEventListener('printer:change', () => { if (current?.view === staff) safeRefresh('printer'); });
   window.addEventListener('notify:change', () => safeRefresh('notify'));
   // Notification clicks from the service worker
   navigator.serviceWorker?.addEventListener('message', (e) => {
