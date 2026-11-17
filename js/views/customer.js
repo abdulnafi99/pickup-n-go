@@ -14,6 +14,7 @@ import { icon, toast, modal, confirmDialog, busy, badge, loading } from '../ui.j
 import { slotsForDate, upcomingDates, immediateSlot, assertSlotBookable } from '../pickup.js';
 import { waLink, orderToShopMessage, shareMessage, contactShopLink, openWhatsApp, PAY_LABEL, locationName } from '../whatsapp.js';
 import { renderQR, orderQRText } from '../qr.js';
+import { loyaltyCardHTML, loyaltyUrl } from '../loyalty.js';
 import { itemsHTML, totalsHTML, trackerHTML, pickupInfoHTML, customerHTML, paymentHTML, downloadReceipt, viewImage } from './shared.js';
 import { installState, promptInstall } from '../pwa.js';
 import { currentTable, scannedTable, setTable, clearTable, tableSettings, tableBarHTML, openNow, isTableOrder } from '../table.js';
@@ -1114,6 +1115,8 @@ export const order = {
 
       ${['Completed', 'Cancelled'].includes(o.status) ? '' : notifyCardHTML({ compact: true })}
 
+      ${loyaltyCardHTML(o)}
+
       <div class="card"><h3>Pickup Details</h3>${pickupInfoHTML(o)}</div>
 
       <div class="card"><h3>Ordered Items</h3>${itemsHTML(o)}
@@ -1143,6 +1146,8 @@ export const order = {
     if (!o) return;
     bindNotify(root, ctx);
     renderQR($('[data-qr]', root), orderQRText(o.id), 160);
+    const lq = $('[data-loyalty-qr]', root);
+    if (lq) renderQR(lq, loyaltyUrl(), 120);
     const demoQR = $('[data-demo-qr]', root);
     if (demoQR) renderQR(demoQR, 'DUITNOW-DEMO|PICK UP N GO|' + o.total.toFixed(2), 180);
 

@@ -17,6 +17,7 @@ import { toast } from './ui.js';
 import { variantText } from './cart.js';
 import { money, fmtDate, fmtTime } from './utils.js';
 import { PAY_LABEL } from './whatsapp.js';
+import { loyaltyUrl } from './loyalty.js';
 
 const SETTINGS_KEY = 'png_printer';      // { id, name, auto }
 const PRINTED_KEY = 'png_printed';       // order ids already printed on this device
@@ -235,6 +236,16 @@ class Receipt {
     lines.forEach((l) => this.line(l));
     return this.line(last + ' '.repeat(Math.max(1, width - last.length - r.length)) + r);
   }
+  /** Native ESC/POS QR code (model 2). Printers without QR support just skip it. */
+  qr(text, size = 5) {
+    const data = Array.from(ascii(text)).map((c) => c.charCodeAt(0));
+    const len = data.length + 3;
+    this.raw(GS, 0x28, 0x6b, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00);        // model 2
+    this.raw(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x43, size);              // module size
+    this.raw(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x45, 0x31);              // error correction M
+    this.raw(GS, 0x28, 0x6b, len & 0xff, len >> 8, 0x31, 0x50, 0x30, ...data); // store
+    return this.raw(GS, 0x28, 0x6b, 0x03, 0x00, 0x31, 0x51, 0x30);       // print
+  }
   para(s, width = WIDTH, indent = '') {
     wrap(s, width - indent.length).forEach((l) => this.line(indent + l));
     return this;
@@ -281,7 +292,15 @@ function orderReceipt(o, { reprint = false } = {}) {
   const method = o.table && o.payment?.method === 'cash' ? 'Pay at Counter' : (PAY_LABEL?.[o.payment?.method] || o.payment?.method || '-');
   r.cols('Payment', method);
   r.cols('Status', o.payment?.status || '-');
-  r.hr().align(1).line('Thank you!').feed(4);
+  r.hr();
+  // Selagi Rewards: scan to join, points go to the order's phone number automatically.
+  r.align(1).bold(true).line('SELAGI REWARDS').bold(false);
+  r.para(o.customer?.phone
+    ? `+1 stamp & 10 pts go to ${o.customer.phone} when you collect. Scan to view or join:`
+    : 'Earn 1 stamp & 10 pts every order. Scan to join:');
+  r.feed(1).qr(loyaltyUrl(), 5).feed(1);
+  r.line(loyaltyUrl().replace(/^https?:\/\//, ''));
+  r.hr().line('Thank you!').feed(4);
   r.raw(GS, 0x56, 0x42, 0x00); // feed & cut (ignored by printers without a cutter)
   return Uint8Array.from(r.bytes);
 }
