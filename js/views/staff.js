@@ -1,6 +1,6 @@
 // ---------------------------------------------------------------------------
 // Staff pickup counter: today's pickups by time, search, QR scan, verify,
-// mark completed.
+// mark completed. Bluetooth receipt printer (auto-prints new orders).
 // ---------------------------------------------------------------------------
 import { Store, ACTIVE_STATUSES } from '../store.js';
 import { $, esc, money, todayStr, fmtDate, fmtTime } from '../utils.js';
@@ -13,6 +13,7 @@ import { logoSVG } from './customer.js';
 import { bindDrawer, drawerButton } from './drawer.js';
 import { permission, enableNotifications, pushReminder } from '../push.js';
 import { posHTML, bindPOS, posTicketCount } from './pos.js';
+import { printerState, connectPrinter, forgetPrinter, setAutoPrint, testPrint, printOrder } from '../printer.js';
 
 const st = { q: '', filter: 'todo', mode: 'orders' }; // mode: 'orders' | 'pos'
 const staffDrawer = { open: false };
@@ -26,6 +27,7 @@ const FILTERS = [
 
 function staffCard(o) {
   const unpaid = o.payment.status !== 'Verified';
+  const canPrint = printerState().paired;
   return `<article class="staff-card st-${o.status.split(' ')[0].toLowerCase()}" data-id="${o.id}">
     <header>
       <div><strong class="oid">${esc(o.id)}</strong><small>${esc(o.customer.name)}${o.customer.phone ? ` • ${esc(o.customer.phone)}` : ''}</small></div>
@@ -41,9 +43,33 @@ function staffCard(o) {
       ${o.status === 'Ready for Pickup' ? `<button class="btn btn-accent btn-sm" data-complete>✅ Complete</button>` : nextStatusBtn(o).replace('btn btn-accent', 'btn btn-accent btn-sm')}
       ${o.customer.phone ? `<a class="btn btn-wa btn-sm" href="${waLink(o.customer.phone, reminderMessage(o))}" target="_blank" rel="noopener" title="Send pickup reminder">${icon.whatsapp}</a>` : ''}
       ${o.pushSub && ACTIVE_STATUSES.includes(o.status) ? '<button class="btn btn-ghost btn-sm" data-push title="Push pickup reminder" aria-label="Push pickup reminder">🔔</button>' : ''}
+      ${canPrint ? '<button class="btn btn-ghost btn-sm" data-print title="Print receipt" aria-label="Print receipt">🖨️</button>' : ''}
       <button class="btn btn-ghost btn-sm" data-details>Details</button>
     </footer>
   </article>`;
+}
+
+/** Printer section of the drawer. */
+function printerNavHTML() {
+  const p = printerState();
+  if (!p.supported) {
+    return `<span class="side-note">🖨️ Bluetooth printing needs Chrome on Android</span>`;
+  }
+  if (!p.paired) {
+    return `<button data-nav data-printer-connect>🖨️<span>Connect printer</span></button>`;
+  }
+  return `<button data-nav data-printer-connect ${p.connected ? 'disabled' : ''}>🖨️<span>${esc(p.name)}</span><i class="${p.connected ? 'side-ok' : 'side-off'}">${p.connected ? 'Connected' : p.connecting ? 'Connecting…' : 'Tap to reconnect'}</i></button>
+    <button data-nav data-printer-auto>⚡<span>Auto-print new orders</span><i class="${p.auto ? 'side-ok' : 'side-off'}">${p.auto ? 'On' : 'Off'}</i></button>
+    <button data-nav data-printer-test>🧾<span>Test print</span>${p.waiting ? `<i class="side-off">${p.waiting} waiting</i>` : ''}</button>
+    <button data-nav data-printer-forget>✖️<span>Forget printer</span></button>`;
+}
+
+/** Small printer indicator / reconnect button in the header. */
+function printerHeadHTML() {
+  const p = printerState();
+  if (!p.supported || !p.paired) return '';
+  if (p.connected) return `<span class="bell-on" title="Printer connected: ${esc(p.name)}">🖨️</span>`;
+  return `<button class="btn btn-accent btn-sm" data-printer-connect title="Printer offline — tap to reconnect">🖨️<span class="hide-sm">Reconnect</span></button>`;
 }
 
 async function completeOrder(id) {
@@ -180,6 +206,10 @@ export const staff = {
           <button data-nav data-scan>${icon.scan}<span>Scan Order QR</span></button>
           ${permission() === 'default' ? `<button data-nav data-bell>🔔<span>Hidupkan order alerts</span></button>` : permission() === 'granted' ? `<span class="side-note">🔔 Order alerts aktif</span>` : ''}
         </nav>
+        <p class="side-label">Receipt printer</p>
+        <nav class="admin-nav" aria-label="Printer">
+          ${printerNavHTML()}
+        </nav>
         <div class="admin-foot">
           ${Store.isAdmin() ? `<a href="#/admin">${icon.chart}<span>Admin Panel</span></a>` : ''}
           <a href="#/home">${icon.store}<span>Customer App</span></a>
@@ -191,6 +221,7 @@ export const staff = {
         ${drawerButton(staffDrawer, filterCount.todo)}
         <div class="admin-title"><h1>${isPOS ? 'POS Kaunter' : 'Pickup Counter'}</h1><small>${fmtDate(today)} • ${modeBadge}</small></div>
         <div class="admin-head-actions">
+          ${printerHeadHTML()}
           ${permission() === 'granted' ? '<span class="bell-on" title="New-order alerts are on">🔔</span>' : ''}
           <button class="btn btn-primary btn-sm head-scan" data-scan aria-label="Scan QR">${icon.scan}<span class="hide-sm">Scan QR</span></button>
         </div>
@@ -249,6 +280,23 @@ export const staff = {
       if (t.closest('[data-scan]')) return openScanner();
       const bell = t.closest('[data-bell]');
       if (bell) return busy(bell, async () => { await enableNotifications(); toast('New-order alerts on 🔔', 'success'); ctx.refresh(); });
+
+      // Receipt printer
+      const pc = t.closest('[data-printer-connect]');
+      if (pc) return busy(pc, async () => { const p = await connectPrinter(); toast(`🖨️ ${p.name} connected`, 'success'); });
+      if (t.closest('[data-printer-auto]')) {
+        const on = !printerState().auto;
+        setAutoPrint(on);
+        return toast(on ? 'Auto-print is on — new orders print automatically' : 'Auto-print is off');
+      }
+      const pt = t.closest('[data-printer-test]');
+      if (pt) return busy(pt, async () => { await testPrint(); toast('Test receipt sent to printer', 'success'); });
+      if (t.closest('[data-printer-forget]')) {
+        if (!(await confirmDialog('Disconnect and forget this printer on this tablet?', { title: 'Forget printer', ok: 'Forget', danger: true }))) return;
+        forgetPrinter();
+        return toast('Printer removed');
+      }
+
       const md = t.closest('[data-mode]');
       if (md) { st.mode = md.dataset.mode; window.scrollTo(0, 0); return ctx.refresh(); }
       const f = t.closest('[data-filter]');
@@ -263,6 +311,8 @@ export const staff = {
       if (t.closest('[data-details]')) return openOrderModal(id, { staffMode: true });
       const pb = t.closest('[data-push]');
       if (pb) return busy(pb, async () => { await pushReminder(Store.order(id)); toast('Push reminder sent', 'success'); });
+      const pr = t.closest('[data-print]');
+      if (pr) return busy(pr, async () => { await printOrder(Store.order(id), { reprint: true }); toast(`🖨️ Printing ${id}`, 'success'); });
     });
   },
 };
