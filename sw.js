@@ -27,6 +27,7 @@ const APP_SHELL = [
   './js/ui.js',
   './js/pwa.js',
   './js/push.js',
+  './js/printer.js'
   './js/food-art.js',
   './js/sample-data.js',
   './js/views/customer.js',
