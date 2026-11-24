@@ -4,7 +4,7 @@
 // ---------------------------------------------------------------------------
 import { Store, ORDER_STATUSES, ACTIVE_STATUSES } from '../store.js';
 import { categories, catName as catNameFn } from '../categories.js';
-import { ART_KEYS, itemVisual, foodArt } from '../food-art.js';
+import { ART_OPTIONS, normalizeArt, artForCategory, itemVisual, foodArt } from '../food-art.js';
 import { $, $$, esc, money, uid, todayStr, addDays, fmtDate, fmtTime, fmtDateTime, compressImage, parseDate, DAYS_LONG, isValidPhone } from '../utils.js';
 import { icon, toast, modal, confirmDialog, busy, badge } from '../ui.js';
 import { generateSlots } from '../pickup.js';
@@ -413,14 +413,15 @@ function openCategoryManager() {
 
 function openMenuForm(id) {
   const existing = id ? Store.menuItem(id) : null;
-  const CAT_ART = { 'rice-noodles': 'nasi-lemak', 'main-course': 'ayam-goreng', snacks: 'karipap', desserts: 'cendol', drinks: 'kopi', kuih: 'kuih-lapis', combo: 'combo-nasi-lemak' };
-  const m = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('m_'), name: '', desc: '', price: '', category: categories()[0]?.id || '', art: CAT_ART[categories()[0]?.id] || 'nasi-lemak', image: '', available: true, featured: false, popular: false, recommended: false, prepMin: 10, kcal: '', serves: 1, rating: 4.5, variants: [], createdAt: Date.now() };
+  // Default illustration per category (Coffee / Matcha / Donut / Mojito), guessed from the category name.
+  const catArt = (id) => artForCategory(categories().find((c) => c.id === id) || { id });
+  const m = existing ? JSON.parse(JSON.stringify(existing)) : { id: uid('m_'), name: '', desc: '', price: '', category: categories()[0]?.id || '', art: catArt(categories()[0]?.id), image: '', available: true, featured: false, popular: false, recommended: false, prepMin: 10, kcal: '', serves: 1, rating: 4.5, variants: [], createdAt: Date.now() };
   const md = modal(`<form class="form menu-form" data-mform>
-      <div class="mf-preview" data-preview>${itemVisual(m)}</div>
+      <div class="mf-preview" data-preview>${itemVisual({ ...m, art: normalizeArt(m.art) })}</div>
       <div class="mf-img-row">
         <label class="btn btn-ghost btn-sm">${icon.upload} Upload Photo<input type="file" accept="image/*" data-img hidden></label>
         <button type="button" class="btn btn-ghost btn-sm" data-img-clear ${m.image ? '' : 'hidden'}>Use illustration</button>
-        <select class="input sm" name="art" title="Illustration">${ART_KEYS.map((k) => `<option ${m.art === k ? 'selected' : ''}>${k}</option>`).join('')}</select>
+        <select class="input sm" name="art" title="Illustration">${ART_OPTIONS.map((o) => `<option value="${o.key}" ${normalizeArt(m.art) === o.key ? 'selected' : ''}>${o.label}</option>`).join('')}</select>
       </div>
       <label class="label">Menu name *</label><input class="input" name="name" value="${esc(m.name)}" required maxlength="60">
       <label class="label">Short description *</label><textarea class="input" name="desc" rows="2" required maxlength="200">${esc(m.desc)}</textarea>
@@ -448,13 +449,13 @@ function openMenuForm(id) {
   let newImage = null;
   const preview = () => { $('[data-preview]', md.el).innerHTML = itemVisual({ ...m, art: form.art.value, image: newImage ?? m.image }); };
   // Illustration follows the category until the admin picks one explicitly.
-  // (Items saved by the old form defaulted to 'nasi-lemak' regardless of category — treat that as untouched.)
-  const legacyDefault = existing && existing.art === 'nasi-lemak' && existing.category !== 'rice-noodles' && !existing.image;
-  let artTouched = !!existing && !legacyDefault && existing.art !== CAT_ART[existing.category];
-  if (legacyDefault && CAT_ART[m.category]) { form.art.value = CAT_ART[m.category]; preview(); }
+  // Items still on an older illustration key (nasi-lemak, kopi, cendol…) count as untouched.
+  const legacyArt = existing && !existing.image && normalizeArt(existing.art) !== existing.art;
+  let artTouched = !!existing && !legacyArt && existing.art !== catArt(existing.category);
+  if (legacyArt) { form.art.value = catArt(m.category); preview(); }
   form.art.addEventListener('change', () => { artTouched = true; preview(); });
   form.category.addEventListener('change', () => {
-    if (!artTouched && CAT_ART[form.category.value]) { form.art.value = CAT_ART[form.category.value]; preview(); }
+    if (!artTouched) { form.art.value = catArt(form.category.value); preview(); }
   });
   $('[data-img]', md.el).addEventListener('change', async (e) => {
     try {

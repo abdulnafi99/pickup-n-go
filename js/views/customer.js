@@ -163,7 +163,7 @@ export const welcome = {
       <p class="welcome-time">${icon.clock} Ready in as fast as 15 min</p>
       <div class="welcome-hero">
         <div class="blob"></div>
-        <div class="welcome-art">${foodArt('kopi')}</div>
+        <div class="welcome-art">${foodArt('coffee')}</div>
       </div>
       <p class="welcome-text">Pre-order your favourite coffee, choose your pickup time, and just grab it at the counter — <strong>no more long queues.</strong></p>
       <ul class="welcome-steps">
