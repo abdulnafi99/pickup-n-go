@@ -1720,3 +1720,21 @@ body.fcart-show .fcart { transition: transform .42s var(--ease-sheet), opacity .
 .lc-qr [data-loyalty-qr] img, .lc-qr [data-loyalty-qr] canvas, .lc-qr [data-loyalty-qr] svg { width: 100%; height: auto; display: block; }
 .lc-qr small { display: block; margin-top: 6px; font-size: 11px; opacity: .75; }
 @media (max-width: 360px) { .lc-qr { width: 92px; } }
+
+/* Kembali ke menu selepas Add to Cart: item terakhir dipilih bersinar sekejap */
+.fcard.just-added { z-index: 4; }
+.fcard.just-added .fcard-panel { animation: justAddedGlow 2s var(--ease-out); }
+.fcard.just-added .fcard-art { animation: justAddedArt .9s var(--ease-spring); }
+@keyframes justAddedGlow {
+  0%  { filter: brightness(1.3); box-shadow: 0 0 0 0 transparent; }
+  18% { filter: brightness(1.12); box-shadow: 0 0 0 4px var(--accent), 0 0 30px 6px color-mix(in srgb, var(--accent) 55%, transparent); }
+  70% { filter: none; box-shadow: 0 0 0 3px var(--accent), 0 0 18px 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+}
+@keyframes justAddedArt {
+  0%  { transform: translateX(-50%) translateY(12px) scale(.9); opacity: .4; }
+  60% { transform: translateX(-50%) translateY(-8px) scale(1.05); opacity: 1; }
+  100% { transform: translateX(-50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fcard.just-added .fcard-art { animation: none; }
+}

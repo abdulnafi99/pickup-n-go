@@ -32,7 +32,14 @@ const routes = [
 
 const viewEl = $('#view');
 const navEl = $('#bottom-nav');
-let current = null; // { view, ctx }
+let current = null; // { view, ctx, hash }
+
+// After Add to Cart on an item page we go back to the page the item was
+// opened from (Menu / Home / Table) — same filters, same scroll — and make
+// that item glow so the customer sees where they left off.
+const BROWSE_VIEWS = new Set([C.home, C.catalog, C.table]);
+let returnTo = null;      // { hash, scrollY } of the last browsing page
+let pendingReturn = null; // { hash, scrollY, id, at } used by the next render
 
 function parseHash() {
   const raw = decodeURIComponent(location.hash.replace(/^#\/?/, ''));
@@ -145,11 +152,20 @@ function render(fresh = true, opts = {}) {
   if (view === C.home && !localStorage.getItem('png_welcomed')) view = C.welcome;
 
   const ctx = { path, query, params, go, refresh: (o) => render(false, o) };
+  const hash = location.hash || '#/home';
+  let back = null;
+  if (fresh && pendingReturn) {
+    if (pendingReturn.hash === hash && Date.now() - pendingReturn.at < 3000) back = pendingReturn;
+    pendingReturn = null;
+  }
+  if (fresh && view === C.item && current && BROWSE_VIEWS.has(current.view)) {
+    returnTo = { hash: current.hash, scrollY: window.scrollY };
+  }
   if (fresh) {
     closeAllModals();
-    view.enter?.(ctx);
+    if (!back) view.enter?.(ctx); // coming back: keep the category/search they had
   }
-  current = { view, ctx };
+  current = { view, ctx, hash };
   pendingTopic = null; // this render covers any deferred refresh
 
   const scrollY = window.scrollY;
@@ -169,6 +185,7 @@ function render(fresh = true, opts = {}) {
   updateNav();
 
   jumpTo(fresh ? 0 : scrollY);
+  if (back) returnToItem(root, back);
   if (focusSel) {
     const el = root.querySelector(focusSel);
     if (el) {
@@ -176,6 +193,33 @@ function render(fresh = true, opts = {}) {
       try { el.setSelectionRange(caret ?? el.value.length, caret ?? el.value.length); } catch { /* type=search etc */ }
     }
   }
+}
+
+/**
+ * Back on the browsing page: restore the scroll position, bring the item
+ * just added into view and make its card glow for a moment.
+ */
+function returnToItem(root, { scrollY, id }) {
+  jumpTo(scrollY);
+  if (!id) return;
+  const cards = [...root.querySelectorAll(`.fcard[data-id="${CSS.escape(id)}"]`)];
+  if (!cards.length) return;
+  // Same item can be in "Recommended" and "All Menu": use the one nearest where they were.
+  const mid = window.innerHeight / 2;
+  const dist = (el) => Math.abs(el.getBoundingClientRect().top - mid);
+  const card = cards.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+  const smooth = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  const row = card.closest('.h-scroll');
+  if (row) row.scrollTo({ left: card.offsetLeft - (row.clientWidth - card.offsetWidth) / 2, behavior: smooth });
+  const r = card.getBoundingClientRect();
+  const bottomUI = 170; // bottom nav + floating cart bar
+  if (r.top < 80 || r.bottom > window.innerHeight - bottomUI) {
+    window.scrollBy({ top: r.top - (window.innerHeight - bottomUI - r.height) / 2, behavior: smooth });
+  }
+  card.classList.remove('just-added');
+  void card.offsetWidth; // restart the animation
+  card.classList.add('just-added');
+  setTimeout(() => card.classList.remove('just-added'), 2200);
 }
 
 /**
@@ -265,8 +309,13 @@ async function boot() {
     const added = count > lastCartCount;
     lastCartCount = count;
     updateNav();
-    // Added from an item page → glide back to Home (cart bar shows the total there).
-    if (added && current?.view === C.item) return leaveTo('#/home', C.item);
+    // Added from an item page → glide back to where it was opened (Menu by
+    // default), with the item highlighted. The cart bar shows the total there.
+    if (added && current?.view === C.item) {
+      const back = returnTo || { hash: '#/menu', scrollY: 0 };
+      pendingReturn = { ...back, id: current.ctx.params[0], at: Date.now() + 750 };
+      return leaveTo(back.hash, C.item);
+    }
     if (current?.view === C.cart || current?.view === C.checkout) safeRefresh('cart');
   });
   document.addEventListener('focusout', () => {
