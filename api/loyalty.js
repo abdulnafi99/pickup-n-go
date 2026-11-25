@@ -6,7 +6,9 @@
 // When staff mark an order "Completed", the staff app calls this endpoint. The
 // server (never the browser) then:
 //   1. reads the order from PICK UP N GO's Firestore and checks it really is
-//      Completed, not a POS sale, and has a Malaysian mobile number;
+//      Completed and has a Malaysian mobile number. POS walk-in sales count only
+//      when staff entered the customer's number on the payment screen
+//      (loyaltyOptIn: true);
 //   2. claims the order once in the loyalty database (pickupngo/awards/<id>),
 //      so the same order can never earn twice;
 //   3. adds 1 stamp (cap) + 10 points to customers/<phone> in the loyalty
@@ -78,7 +80,7 @@ async function award(orderId) {
   if (!snap.exists) return { ok: false, reason: 'order-not-found' };
   const order = snap.data();
   if (order.status !== 'Completed') return { ok: false, reason: 'not-completed' };
-  if (order.source === 'pos') return { ok: false, reason: 'pos-order' };
+  if (order.source === 'pos' && order.loyaltyOptIn !== true) return { ok: false, reason: 'pos-order' };
   if (order.loyalty?.awarded) return { ok: true, already: true, phone: order.loyalty.phone, points: order.loyalty.points };
 
   const phone = normalizePhone(order.customer?.phone);
@@ -145,7 +147,7 @@ async function award(orderId) {
 
     // 4) Log it (loyalty DB) and mark the order (shop DB).
     await rtdb.ref(`customers/${phone}/pickupngoHistory/${orderId}`).set({
-      orderId, points: POINTS_PER_ORDER, stamp: result.stamps, total: Number(order.total) || 0, at: nowIso,
+      orderId, points: POINTS_PER_ORDER, stamp: result.stamps, total: Number(order.total) || 0, at: nowIso, source: order.source === 'pos' ? 'pos' : 'pickup',
     });
     await orderRef.update({
       loyalty: { awarded: true, phone, points: POINTS_PER_ORDER, stamp: result.stamps, newMember: created, at: Date.now() },

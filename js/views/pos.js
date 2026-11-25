@@ -14,6 +14,7 @@ import { $, esc, money, orderId, todayStr } from '../utils.js';
 import { icon, toast, modal, busy, confirmDialog } from '../ui.js';
 import { renderQR } from '../qr.js';
 import { printReceipt } from './shared.js';
+import { normalizeLoyaltyPhone, loyaltyResult } from '../loyalty.js';
 
 const pos = {
   q: '',
@@ -254,6 +255,15 @@ function sumHTML(subtotal) {
   </div>`;
 }
 
+/** Selagi Rewards phone on the payment screen: empty (no points), valid, or not a Malaysian mobile. */
+function loyaltyState() {
+  const raw = pos.phone.trim();
+  if (!raw) return { cls: '', phone: '', hint: 'Masukkan nombor telefon pelanggan untuk kumpul point dalam app Selagi. Biar kosong jika tidak mahu.' };
+  const phone = normalizeLoyaltyPhone(raw);
+  if (!phone) return { cls: 'bad', phone: '', hint: 'Nombor tidak sah — guna nombor mobile Malaysia (cth: 0123456789).' };
+  return { cls: 'ok', phone, hint: `✓ 1 cap + 10 point akan dimasukkan ke <b>${esc(phone)}</b> bila jualan selesai. Belum ahli? Akaun dibuka automatik.` };
+}
+
 function checkoutHTML() {
   const lines = ticketLines();
   const subtotal = ticketTotal();
@@ -276,12 +286,15 @@ function checkoutHTML() {
     ${discountHTML(subtotal)}
     ${sumHTML(subtotal)}
 
-    <details class="pos-cust" ${pos.name || pos.phone || pos.note ? 'open' : ''}>
-      <summary>Pelanggan & nota <small>(pilihan)</small></summary>
-      <div class="two">
-        <input class="input sm" data-pf="name" value="${esc(pos.name)}" placeholder="Nama (Walk-in)" maxlength="40">
-        <input class="input sm" data-pf="phone" value="${esc(pos.phone)}" placeholder="Telefon" inputmode="tel" maxlength="15">
-      </div>
+    <div class="pos-loyalty ${loyaltyState().cls}">
+      <div class="plo-head"><span class="plo-chip">⭐ Selagi Rewards</span><small>1 cap + 10 point setiap jualan</small></div>
+      <input class="input" data-pf="phone" value="${esc(pos.phone)}" placeholder="No. telefon pelanggan (cth: 012-345 6789)" inputmode="tel" autocomplete="off" maxlength="15" aria-describedby="pos-loyalty-hint">
+      <small id="pos-loyalty-hint" class="plo-hint" data-loyalty-hint>${loyaltyState().hint}</small>
+    </div>
+
+    <details class="pos-cust" ${pos.name || pos.note ? 'open' : ''}>
+      <summary>Nama & nota <small>(pilihan)</small></summary>
+      <input class="input sm" data-pf="name" value="${esc(pos.name)}" placeholder="Nama (Walk-in)" maxlength="40">
       <input class="input sm" data-pf="note" value="${esc(pos.note)}" placeholder="Nota (cth: kurang manis, bungkus)" maxlength="120">
     </details>
 
@@ -319,6 +332,8 @@ async function charge(mode) {
   const total = +(subtotal - disc.amount).toFixed(2);
   const cashNum = Number(pos.cash) || 0;
   if (pos.method === 'cash' && pos.cash && cashNum < total) throw new Error('Tunai diterima kurang daripada jumlah.');
+  const loyalty = loyaltyState();
+  if (loyalty.cls === 'bad') throw new Error('No. telefon Selagi Rewards tidak sah. Betulkan atau kosongkan.');
   const u = Store.user;
   const now = new Date();
   const id = orderId(now);
@@ -327,7 +342,8 @@ async function charge(mode) {
     source: 'pos',
     createdAt: now.getTime(),
     updatedAt: now.getTime(),
-    customer: { uid: u.id, name: pos.name.trim() || 'Walk-in', phone: pos.phone.trim(), email: '' },
+    customer: { uid: u.id, name: pos.name.trim() || 'Walk-in', phone: loyalty.phone, email: '' },
+    loyaltyOptIn: !!loyalty.phone, // Selagi Rewards: server adds 1 stamp + 10 pts when the sale is Completed
     items: lines.map((l) => ({ menuId: l.menuId, name: l.item.name, art: l.item.art || '', unitPrice: l.unitPrice, qty: l.qty, variant: l.variant, note: l.note || '' })),
     specialRequest: pos.note.trim(),
     subtotal,
@@ -352,7 +368,7 @@ async function charge(mode) {
     ...(pos.method === 'cash' ? { cashReceived: pos.cash ? cashNum : total, change: pos.cash ? +(cashNum - total).toFixed(2) : 0 } : {}),
   };
   await Store.updateOrder(id, { status: mode === 'done' ? 'Completed' : 'Preparing', payment: paid });
-  return { id, total, subtotal, discount: disc.amount, discountLabel: disc.label, change: paid.change || 0, method: pos.method, mode };
+  return { id, total, subtotal, discount: disc.amount, discountLabel: disc.label, change: paid.change || 0, method: pos.method, mode, loyaltyPhone: loyalty.phone };
 }
 
 function openCheckout(refresh) {
@@ -396,6 +412,14 @@ function openCheckout(refresh) {
     const f = e.target.dataset.pf;
     if (!f) return;
     pos[f] = f === 'cash' ? e.target.value.replace(/[^0-9.]/g, '') : e.target.value;
+    if (f === 'phone') {
+      const st = loyaltyState();
+      const box = md.el.querySelector('.pos-loyalty');
+      if (box) box.className = `pos-loyalty ${st.cls}`;
+      const hint = md.el.querySelector('[data-loyalty-hint]');
+      if (hint) hint.innerHTML = st.hint;
+      return;
+    }
     if (f === 'cash') {
       // update only the change line to keep the keyboard open
       const total = payable();
@@ -456,6 +480,9 @@ function showDone(r) {
         ${r.method === 'cash' ? `<div class="pos-change-row"><span>Baki kepada pelanggan</span><strong>${money(r.change)}</strong></div>` : ''}
         <div><span>Status</span><strong>${r.mode === 'done' ? 'Selesai' : 'Sedang disediakan (dalam senarai To Do)'}</strong></div>
       </div>
+      ${r.loyaltyPhone ? `<div class="pos-loyalty-done" data-loyalty-done>⭐ <span>${r.mode === 'done'
+        ? `Menambah point Selagi Rewards ke <b>${esc(r.loyaltyPhone)}</b>…`
+        : `1 cap + 10 point akan dimasukkan ke <b>${esc(r.loyaltyPhone)}</b> bila pesanan ditanda Selesai.`}</span></div>` : ''}
       <div class="btn-row">
         <button class="btn btn-ghost" data-print>${icon.print} Cetak Resit</button>
         <button class="btn btn-primary" data-close>Jualan Baru</button>
@@ -465,6 +492,28 @@ function showDone(r) {
     const o = Store.order(r.id);
     if (o) printReceipt(o);
   });
+  if (r.loyaltyPhone && r.mode === 'done') {
+    const show = (d) => {
+      const box = md.el.querySelector('[data-loyalty-done]');
+      if (!box) return;
+      box.classList.add(d.ok ? 'ok' : 'bad');
+      box.innerHTML = !d.ok
+        ? `⚠️ <span>Point belum dimasukkan: ${esc(d.error || 'cuba lagi dari senarai pesanan')}</span>`
+        : d.already
+          ? `⭐ <span>Point untuk jualan ini sudah dimasukkan ke <b>${esc(d.phone || r.loyaltyPhone)}</b>.</span>`
+          : `⭐ <span><b>+${d.points || 10} point</b> · Cap ${d.stamp || '?'}/10 → <b>${esc(d.phone || r.loyaltyPhone)}</b>${d.newMember ? ' (ahli baru)' : ''}${d.rewards?.length ? ` · 🎁 ${esc(d.rewards.join(', '))}` : ''}</span>`;
+    };
+    const ready = loyaltyResult(r.id); // the award may already have finished
+    if (ready) show(ready);
+    else {
+      const onAward = (e) => {
+        if (e.detail?.orderId !== r.id) return;
+        window.removeEventListener('loyalty:result', onAward);
+        show(e.detail);
+      };
+      window.addEventListener('loyalty:result', onAward);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

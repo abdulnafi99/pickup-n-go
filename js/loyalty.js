@@ -10,6 +10,22 @@ import { toast } from './ui.js';
 /** Selagi Coffee loyalty app (customers install it from here). Admin can override with settings.loyaltyUrl. */
 export const loyaltyUrl = () => Store.settings?.loyaltyUrl || 'https://selagicoffeenew11.vercel.app';
 
+/** '012-345 6789' / '+60123456789' → '0123456789' (loyalty app key format), '' if not a Malaysian mobile. */
+export function normalizeLoyaltyPhone(raw) {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (d.startsWith('60')) d = '0' + d.slice(2);
+  return /^01\d{8,9}$/.test(d) ? d : '';
+}
+
+/** Latest award result per order, so a screen opened just after the sale can still show it. */
+const results = new Map();
+export const loyaltyResult = (orderId) => results.get(orderId) || null;
+const announce = (detail) => {
+  results.set(detail.orderId, detail);
+  if (results.size > 30) results.delete(results.keys().next().value);
+  try { window.dispatchEvent(new CustomEvent('loyalty:result', { detail })); } catch {}
+};
+
 const escHTML = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** "Join Selagi Rewards" card for the order page (QR is drawn into [data-loyalty-qr]). */
@@ -35,9 +51,13 @@ export function loyaltyCardHTML(o) {
 }
 
 export async function awardLoyalty(order) {
-  if (Store.mode !== 'firebase') return null; // demo mode has no real orders
-  if (!order || order.status !== 'Completed' || order.source === 'pos') return null;
+  if (!order || order.status !== 'Completed') return null;
+  if (order.source === 'pos' && !order.loyaltyOptIn) return null; // walk-in sale without a Selagi Rewards number
   if (!order.customer?.phone) return null;
+  if (Store.mode !== 'firebase') { // demo mode has no real orders / loyalty database
+    announce({ orderId: order.id, ok: false, error: 'mod demo — point hanya dihantar dalam mod Firebase' });
+    return null;
+  }
   try {
     const res = await fetch('/api/loyalty', {
       method: 'POST',
@@ -45,8 +65,9 @@ export async function awardLoyalty(order) {
       body: JSON.stringify({ orderId: order.id }),
     });
     const data = await res.json().catch(() => ({}));
-    if (res.status === 503) { console.warn('loyalty not configured:', data.error); return null; } // keys not set on Vercel yet
+    if (res.status === 503) { console.warn('loyalty not configured:', data.error); announce({ orderId: order.id, ok: false, error: 'loyalty belum dikonfigurasi di server' }); return null; } // keys not set on Vercel yet
     if (!res.ok) throw new Error(data.error || `Loyalty failed (${res.status})`);
+    announce({ orderId: order.id, ...data, ok: !!data.ok, error: data.ok ? '' : (data.reason || '') });
     if (data.ok && !data.already && data.points) {
       const reward = data.rewards?.length ? ` 🎁 ${data.rewards.join(', ')} unlocked!` : '';
       const who = data.newMember ? 'New loyalty member' : 'Loyalty';
@@ -55,6 +76,7 @@ export async function awardLoyalty(order) {
     return data;
   } catch (e) {
     console.warn('loyalty', e.message);
+    announce({ orderId: order.id, ok: false, error: e.message });
     toast(`Loyalty points not added: ${e.message}`, 'error', 5000);
     return null;
   }
