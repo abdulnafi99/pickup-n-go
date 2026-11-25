@@ -1227,6 +1227,20 @@ body[data-chrome="admin"] .toast.show, body[data-chrome="staff"] .toast.show { t
 .pos-cust summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--primary); padding: 4px 0 8px; }
 .pos-cust summary small { color: var(--muted); font-weight: 400; }
 .pos-cust .input { margin-bottom: 8px; }
+/* Selagi Rewards phone on the POS payment screen */
+.pos-loyalty { margin: 4px 0 14px; padding: 12px 14px; border-radius: 14px; border: 1.5px dashed color-mix(in srgb, var(--primary) 35%, transparent); background: color-mix(in srgb, var(--primary) 5%, transparent); transition: border-color .25s ease, background .25s ease; }
+.pos-loyalty.ok { border-style: solid; border-color: #2e9e5b; background: rgba(46, 158, 91, .07); }
+.pos-loyalty.bad { border-style: solid; border-color: #d1453b; background: rgba(209, 69, 59, .06); }
+.pos-loyalty .plo-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.pos-loyalty .plo-chip { font-weight: 800; font-size: 14px; color: var(--primary); }
+.pos-loyalty .plo-head small { color: var(--muted); font-size: 12px; }
+.pos-loyalty .input { font-size: 16px; letter-spacing: .5px; }
+.pos-loyalty .plo-hint { display: block; margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
+.pos-loyalty.ok .plo-hint { color: #237a46; }
+.pos-loyalty.bad .plo-hint { color: #b8372e; }
+.pos-loyalty-done { display: flex; gap: 8px; align-items: flex-start; margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--primary) 6%, transparent); font-size: 13.5px; line-height: 1.45; text-align: left; }
+.pos-loyalty-done.ok { background: rgba(46, 158, 91, .1); color: #1f6b3d; }
+.pos-loyalty-done.bad { background: rgba(209, 69, 59, .08); color: #a3322a; }
 .pos-cash .label { margin-top: 0; }
 .pos-cash-in { font-size: 22px !important; font-weight: 700; text-align: right; }
 .pos-quick { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }

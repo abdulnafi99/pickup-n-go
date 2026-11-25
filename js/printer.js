@@ -295,9 +295,13 @@ function orderReceipt(o, { reprint = false } = {}) {
   r.hr();
   // Selagi Rewards: scan to join, points go to the order's phone number automatically.
   r.align(1).bold(true).line('SELAGI REWARDS').bold(false);
-  r.para(o.customer?.phone
-    ? `+1 stamp & 10 pts go to ${o.customer.phone} when you collect. Scan to view or join:`
-    : 'Earn 1 stamp & 10 pts every order. Scan to join:');
+  r.para(o.source === 'pos'
+    ? (o.loyaltyOptIn && o.customer?.phone
+      ? `+1 stamp & 10 pts added to ${o.customer.phone}. Log in with this number to view:`
+      : 'Earn 1 stamp & 10 pts every visit: give your phone number at the counter, or scan to join:')
+    : (o.customer?.phone
+      ? `+1 stamp & 10 pts go to ${o.customer.phone} when you collect. Scan to view or join:`
+      : 'Earn 1 stamp & 10 pts every order. Scan to join:'));
   r.feed(1).qr(loyaltyUrl(), 5).feed(1);
   r.line(loyaltyUrl().replace(/^https?:\/\//, ''));
   r.hr().line('Thank you!').feed(4);
